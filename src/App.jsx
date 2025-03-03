@@ -1,350 +1,402 @@
-import { useState, useMemo, useEffect } from "react";
-import { VictoryPie, VictoryTooltip, VictoryLegend } from "victory";
-import { Container, Row, Col, Form, Button, Card, Tabs, Tab, Table } from "react-bootstrap";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "bootstrap/dist/css/bootstrap.min.css";
+import { useState, useMemo } from 'react';
+import { VictoryBar, VictoryChart, VictoryAxis, VictoryTooltip, VictoryLegend } from 'victory';
+import { Container, Card, Form, Button, Tabs, Tab, Table, Row, Col, ButtonGroup } from 'react-bootstrap';
 
-// Sample data
+// Configuración de colores
+const COLOR_CONFIG = {
+  emission: {
+    vivo: '#ff0000',
+    grabado: '#00ff00',
+    repeticion: '#0000ff',
+    diferido: '#ffff00',
+    'short-turnaround': '#00ffff'
+  },
+  status: {
+    cancelado: '#ff0000',
+    borrador: '#808080',
+    aprobado: '#ffff00',
+    publicado: '#00ff00'
+  }
+};
+
+// Datos de ejemplo
 const sampleData = [
-  { date: "2024-09-01", value: 1, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2024-09-15", value: 2, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2024-10-01", value: 1, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2024-10-02", value: 1, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2024-10-03", value: 2, emissionType: "replay", programStatus: "draft", feed: "706", network: "A" },
-  { date: "2024-11-04", value: 2, emissionType: "delayed", programStatus: "canceled", feed: "315", network: "B" },
-  { date: "2024-11-05", value: 3, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2024-11-06", value: 1, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2024-11-07", value: 2, emissionType: "replay", programStatus: "draft", feed: "706", network: "A" },
-  { date: "2024-11-08", value: 2, emissionType: "delayed", programStatus: "canceled", feed: "315", network: "B" },
-  { date: "2024-11-09", value: 3, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2024-12-10", value: 1, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2024-12-11", value: 2, emissionType: "replay", programStatus: "draft", feed: "706", network: "A" },
-  { date: "2025-01-12", value: 2, emissionType: "delayed", programStatus: "canceled", feed: "315", network: "B" },
-  { date: "2025-01-13", value: 3, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2025-01-14", value: 2, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2025-01-15", value: 2, emissionType: "replay", programStatus: "draft", feed: "706", network: "A" },
-  { date: "2025-02-16", value: 2, emissionType: "delayed", programStatus: "canceled", feed: "315", network: "B" },
-  { date: "2025-01-17", value: 3, emissionType: "live", programStatus: "published", feed: "706", network: "A" },
-  { date: "2025-02-18", value: 2, emissionType: "recorded", programStatus: "approved", feed: "315", network: "B" },
-  { date: "2025-02-19", value: 2, emissionType: "replay", programStatus: "draft", feed: "706", network: "A" },
-  { date: "2025-02-20", value: 3, emissionType: "delayed", programStatus: "canceled", feed: "315", network: "B" },
-  { date: "2025-02-25", value: 1, emissionType: "live", programStatus: "approved", feed: "706", network: "A" }
+  {
+    id: 1,
+    fecha: '2024-08-26 09:00',
+    network: 'ESPN',
+    feed: 'A',
+    tipoEmision: 'vivo',
+    estadoPrograma: 'publicado',
+    duracion: 120,
+    reportes: 3
+  },
+  {
+    id: 2,
+    fecha: '2024-08-26 14:30',
+    network: 'FOX',
+    feed: 'B',
+    tipoEmision: 'grabado',
+    estadoPrograma: 'aprobado',
+    duracion: 90,
+    reportes: 1
+  },
+  {
+    id: 3,
+    fecha: '2024-08-26 18:15',
+    network: 'ESPN 2',
+    feed: 'C',
+    tipoEmision: 'repeticion',
+    estadoPrograma: 'borrador',
+    duracion: 45,
+    reportes: 5
+  },
+  {
+    id: 4,
+    fecha: '2024-08-26 21:00',
+    network: 'ESPN PREMIUM',
+    feed: 'D',
+    tipoEmision: 'diferido',
+    estadoPrograma: 'cancelado',
+    duracion: 60,
+    reportes: 8
+  },
+  {
+    id: 5,
+    fecha: '2024-08-27 07:30',
+    network: 'SUR',
+    feed: 'E',
+    tipoEmision: 'short-turnaround',
+    estadoPrograma: 'publicado',
+    duracion: 30,
+    reportes: 0
+  },
+  {
+    id: 6,
+    fecha: '2024-08-27 12:45',
+    network: 'NORTE',
+    feed: 'U',
+    tipoEmision: 'vivo',
+    estadoPrograma: 'aprobado',
+    duracion: 150,
+    reportes: 2
+  },
+  {
+    id: 7,
+    fecha: '2024-08-27 16:20',
+    network: 'TMK',
+    feed: 'A',
+    tipoEmision: 'grabado',
+    estadoPrograma: 'publicado',
+    duracion: 85,
+    reportes: 4
+  },
+  {
+    id: 8,
+    fecha: '2024-08-27 19:10',
+    network: 'EDM',
+    feed: 'B',
+    tipoEmision: 'repeticion',
+    estadoPrograma: 'borrador',
+    duracion: 95,
+    reportes: 7
+  },
+  {
+    id: 9,
+    fecha: '2024-08-28 08:00',
+    network: 'ESPN 3',
+    feed: 'C',
+    tipoEmision: 'diferido',
+    estadoPrograma: 'cancelado',
+    duracion: 40,
+    reportes: 10
+  },
+  {
+    id: 10,
+    fecha: '2024-08-28 15:30',
+    network: 'ESPN 4',
+    feed: 'D',
+    tipoEmision: 'short-turnaround',
+    estadoPrograma: 'aprobado',
+    duracion: 110,
+    reportes: 1
+  },
+  {
+    id: 11,
+    fecha: '2024-08-28 22:45',
+    network: 'ESPN EXTRA',
+    feed: 'E',
+    tipoEmision: 'vivo',
+    estadoPrograma: 'publicado',
+    duracion: 75,
+    reportes: 6
+  }
+
+  // ... más datos de ejemplo
 ];
 
-// Color configuration
-const emissionColors = {
-  live: "#ff0000",
-  recorded: "#00ff00",
-  replay: "#0000ff",
-  delayed: "#ffff00",
-  "short-turnaround": "#00ffff"
-};
+const ReportesProgramacion = () => {
+  const [activeTab, setActiveTab] = useState('tabla');
+  const [filters, setFilters] = useState({
+    fechaDesde: '',
+    fechaHasta: '',
+    network: '',
+    feed: '',
+    tipoEmision: '',
+    estadoPrograma: ''
+  });
 
-const statusColors = {
-  canceled: "#ff0000",
-  draft: "#808080",
-  approved: "#ffff00",
-  published: "#00ff00"
-};
+  const [chartType, setChartType] = useState('reportes');
 
-const App = () => {
-  const [emissionType, setEmissionType] = useState("all");
-  const [programStatus, setProgramStatus] = useState("all");
-  const [timeRange, setTimeRange] = useState("1 week");
-  const [dataType, setDataType] = useState("emission");
-  const [applyFilters, setApplyFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState("visualization");
-  const [chartDimensions, setChartDimensions] = useState({ width: 1, height: 1 });
-
-  const timeRangeMap = {
-    "1 day": 1,
-    "1 week": 7,
-    "1 month": 30,
-    "3 months": 90,
-    "1 year": 365
-  };
-
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth * 0.8; // 80% del ancho de la ventana
-      const height = window.innerHeight * 0.5; // 50% del alto de la ventana
-      setChartDimensions({ width, height });
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Llamar inicialmente para establecer las dimensiones
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Filter data
+  // Procesamiento de datos
   const filteredData = useMemo(() => {
-    if (!applyFilters) return [];
-
-    const maxDate = new Date(Math.max(...sampleData.map(d => new Date(d.date))));
-    const days = timeRangeMap[timeRange] || 7;
-    const startDate = new Date(maxDate);
-    startDate.setDate(startDate.getDate() - days);
-
-    return sampleData.filter((item) => {
-      const itemDate = new Date(item.date);
+    return sampleData.filter(item => {
       return (
-        itemDate >= startDate &&
-        itemDate <= maxDate &&
-        (emissionType === "all" || item.emissionType === emissionType) &&
-        (programStatus === "all" || item.programStatus === programStatus)
+        (!filters.fechaDesde || item.fecha >= filters.fechaDesde) &&
+        (!filters.fechaHasta || item.fecha <= filters.fechaHasta) &&
+        (!filters.network || item.network === filters.network) &&
+        (!filters.feed || item.feed === filters.feed) &&
+        (!filters.tipoEmision || item.tipoEmision === filters.tipoEmision) &&
+        (!filters.estadoPrograma || item.estadoPrograma === filters.estadoPrograma)
       );
     });
-  }, [applyFilters, emissionType, programStatus, timeRange]);
+  }, [filters]);
 
-  const aggregateData = (data, key) => {
-    return Object.values(
-      data.reduce((acc, item) => {
-        const keyValue = item[key];
-        if (!acc[keyValue]) {
-          acc[keyValue] = {
-            x: keyValue,
-            y: 0,
-            color: key === 'emissionType' 
-              ? emissionColors[keyValue] 
-              : statusColors[keyValue]
-          };
-        }
-        acc[keyValue].y += 1; // Contar eventos
-        return acc;
-      }, {})
-    );
-  };
-
-  // Export to Excel
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
-    XLSX.writeFile(workbook, "data.xlsx");
-  };
-
-  // Export to PDF
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Filtered Data", 10, 10);
-    filteredData.forEach((item, index) => {
-      doc.text(
-        `${item.date} - ${item.value} - ${item.emissionType} - ${item.programStatus} - ${item.feed} - ${item.network}`,
-        10,
-        20 + index * 10
-      );
+  // Datos para gráficos
+  const hourlyReports = useMemo(() => {
+    const reportsByHour = Array(24).fill(0).map((_, i) => ({ hour: i, count: 0 }));
+    
+    filteredData.forEach(item => {
+      const hour = new Date(item.fecha).getHours();
+      reportsByHour[hour].count += item.reportes;
     });
-    doc.save("data.pdf");
-  };
-
-  // Get legend data
-  const legendData = dataType === "emission" 
-    ? Object.keys(emissionColors).map(key => ({ name: key, symbol: { fill: emissionColors[key] } }))
-    : Object.keys(statusColors).map(key => ({ name: key, symbol: { fill: statusColors[key] } }));
+    
+    return reportsByHour.map(h => ({
+      x: `${h.hour}:00`,
+      y: h.count,
+      label: `Hora: ${h.hour}:00\nReportes: ${h.count}`
+    }));
+  }, [filteredData]);
 
   return (
-    <Container className="mt-4" style={{ maxWidth: 'auto' }}>
-      <Card>
-        <Card.Header as="h5" className="d-flex justify-content-between align-items-center">
-          Control Panel
-          <div>
-            <Button variant="success" onClick={exportToExcel} className="me-2">
-              Export to Excel
-            </Button>
-            <Button variant="danger" onClick={exportToPDF}>
-              Export to PDF
-            </Button>
-          </div>
-        </Card.Header>
-
+    <Container fluid className="p-4 bg-light">
+      <Card className="mb-4 shadow">
         <Card.Body>
-          <Row className="mb-3 g-3">
-            {/* Filters */}
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Show by</Form.Label>
-                <Form.Select 
-                  value={dataType} 
-                  onChange={(e) => setDataType(e.target.value)}
+          <h5 className="mb-4">Filtros de Búsqueda</h5>
+          <Form>
+            <Row className="g-3">
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Fecha desde</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={filters.fechaDesde}
+                    onChange={e => setFilters({...filters, fechaDesde: e.target.value})}
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Fecha hasta</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={filters.fechaHasta}
+                    onChange={e => setFilters({...filters, fechaHasta: e.target.value})}
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Network</Form.Label>
+                  <Form.Select
+                    value={filters.network}
+                    onChange={e => setFilters({...filters, network: e.target.value})}
+                  >
+                    <option value="">Todos</option>
+                    {['ESPN', 'ESPN 2', 'ESPN 3', 'ESPN 4', 'ESPN EXTRA', 'FOX', 'ESPN PREMIUM', 'SUR', 'NORTE', 'TMK', 'EDM'].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Feed</Form.Label>
+                  <Form.Select
+                    value={filters.feed}
+                    onChange={e => setFilters({...filters, feed: e.target.value})}
+                  >
+                    <option value="">Todos</option>
+                    {['A', 'B', 'C', 'D', 'E', 'U'].map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Tipo de Emisión</Form.Label>
+                  <Form.Select
+                    value={filters.tipoEmision}
+                    onChange={e => setFilters({...filters, tipoEmision: e.target.value})}
+                  >
+                    <option value="">Todos</option>
+                    {Object.keys(COLOR_CONFIG.emission).map(t => (
+                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Estado del Programa</Form.Label>
+                  <Form.Select
+                    value={filters.estadoPrograma}
+                    onChange={e => setFilters({...filters, estadoPrograma: e.target.value})}
+                  >
+                    <option value="">Todos</option>
+                    {Object.keys(COLOR_CONFIG.status).map(e => (
+                      <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={12} className="text-end mt-3">
+                <Button
+                  variant="primary"
+                  onClick={() => setFilters({...filters})}
+                  className="me-2"
                 >
-                  <option value="emission">Emission Type</option>
-                  <option value="status">Program Status</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Emission Type</Form.Label>
-                <Form.Select 
-                  value={emissionType} 
-                  onChange={(e) => setEmissionType(e.target.value)}
-                  style={{ backgroundColor: emissionColors[emissionType] || 'white' }}
-                  disabled={dataType === "status"}
+                  Buscar
+                </Button>
+                <Button
+                  variant="outline-secondary"
+                  onClick={() => setFilters({
+                    fechaDesde: '',
+                    fechaHasta: '',
+                    network: '',
+                    feed: '',
+                    tipoEmision: '',
+                    estadoPrograma: ''
+                  })}
                 >
-                  <option value="all">All Options</option>
-                  <option value="live" style={{ backgroundColor: emissionColors.live }}>Live</option>
-                  <option value="recorded" style={{ backgroundColor: emissionColors.recorded }}>Recorded</option>
-                  <option value="replay" style={{ backgroundColor: emissionColors.replay }}>Replay</option>
-                  <option value="delayed" style={{ backgroundColor: emissionColors.delayed }}>Delayed</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Program Status</Form.Label>
-                <Form.Select 
-                  value={programStatus} 
-                  onChange={(e) => setProgramStatus(e.target.value)}
-                  style={{ backgroundColor: statusColors[programStatus] || 'white' }}
-                  disabled={dataType === "emission"}
-                >
-                  <option value="all">All Options</option>
-                  <option value="canceled" style={{ backgroundColor: statusColors.canceled }}>Canceled</option>
-                  <option value="draft" style={{ backgroundColor: statusColors.draft }}>Draft</option>
-                  <option value="approved" style={{ backgroundColor: statusColors.approved }}>Approved</option>
-                  <option value="published" style={{ backgroundColor: statusColors.published }}>Published</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Time Range</Form.Label>
-                <Form.Select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
-                  <option value="1 day">1 Day</option>
-                  <option value="1 week">1 Week</option>
-                  <option value="1 month">1 Month</option>
-                  <option value="3 months">3 Months</option>
-                  <option value="1 year">1 Year</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-
-            <Col md={6} className="d-flex align-items-end gap-2">
-              <Button 
-                variant="primary" 
-                onClick={() => setApplyFilters(true)}
-              >
-                Apply Filters
-              </Button>
-              <Button 
-                variant="secondary" 
-                onClick={() => {
-                  setEmissionType("all");
-                  setProgramStatus("all");
-                  setTimeRange("1 week");
-                  setApplyFilters(false);
-                }}
-              >
-                Clear Filters
-              </Button>
-            </Col>
-          </Row>
-
-          {/* Tabs for visualization and results */}
-          <Tabs
-            activeKey={activeTab}
-            onSelect={(k) => setActiveTab(k)}
-            className="mb-3"
-          >
-            <Tab eventKey="visualization" title="Data Visualization">
-              <Card className="mt-4">
-                <Card.Body style={{ height: '400px' }}>
-                  {!applyFilters ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                      <h4>There are no modifications for the selected option</h4>
-                    </div>
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      {/* Título de la visualización */}
-                      <h5 style={{ marginBottom: '10px' }}>
-                        Showing by: {dataType === 'emission' ? 'Emission Type' : 'Program Status'}
-                      </h5>
-
-                      {/* Gráfico de torta */}
-                      <div style={{ width: '100%', height: '300px', display: 'flex', justifyContent: 'center' }}>
-                        <VictoryPie
-                          data={aggregateData(
-                            filteredData, 
-                            dataType === 'emission' ? 'emissionType' : 'programStatus'
-                          )}
-                          colorScale={aggregateData(
-                            filteredData, 
-                            dataType === 'emission' ? 'emissionType' : 'programStatus'
-                          ).map(d => d.color)}
-                          width={chartDimensions.width}
-                          height={chartDimensions.height}
-                          padAngle={3}
-                          labels={({ datum }) => `${datum.x}: ${datum.y}`}
-                          labelComponent={<VictoryTooltip style={{ fontSize: 18 }} />}
-                          padding={{ top: 50, bottom: 50, left: 50, right: 50 }}
-                        />
-                      </div>
-
-                      {/* Leyenda debajo del gráfico */}
-                      <div style={{ marginTop: '20px' }}>
-                        <VictoryLegend
-                          data={legendData}
-                          orientation="horizontal"
-                          gutter={50}
-                          style={{ labels: { fontSize: 16 } }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </Card.Body>
-              </Card>
-            </Tab>
-
-            <Tab eventKey="results" title="Results Table">
-              <Card className="mt-4">
-                <Card.Body style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {!applyFilters ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                      <h4>there are no modifications for the selected option</h4>
-                    </div>
-                  ) : (
-                    <Table striped bordered hover>
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Value</th>
-                          <th>Emission Type</th>
-                          <th>Program Status</th>
-                          <th>Feed</th>
-                          <th>Network</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredData.map((item, index) => (
-                          <tr key={index}>
-                            <td>{item.date}</td>
-                            <td>{item.value}</td>
-                            <td style={{ backgroundColor: emissionColors[item.emissionType] }}>
-                              {item.emissionType}
-                            </td>
-                            <td style={{ backgroundColor: statusColors[item.programStatus] }}>
-                              {item.programStatus}
-                            </td>
-                            <td>{item.feed}</td>
-                            <td>{item.network}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  )}
-                </Card.Body>
-              </Card>
-            </Tab>
-          </Tabs>
+                  Limpiar
+                </Button>
+              </Col>
+            </Row>
+          </Form>
         </Card.Body>
       </Card>
+
+      <Tabs activeKey={activeTab} onSelect={k => setActiveTab(k)} className="mb-3">
+        <Tab eventKey="tabla" title="Vista de Tabla">
+          <Card className="shadow">
+            <Card.Body>
+              <Table striped bordered hover responsive>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Network</th>
+                    <th>Feed</th>
+                    <th>Tipo Emisión</th>
+                    <th>Estado</th>
+                    <th>Duración (min)</th>
+                    <th>Reportes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.fecha}</td>
+                      <td>{item.network}</td>
+                      <td>{item.feed}</td>
+                      <td style={{backgroundColor: COLOR_CONFIG.emission[item.tipoEmision]}}>
+                        {item.tipoEmision}
+                      </td>
+                      <td style={{backgroundColor: COLOR_CONFIG.status[item.estadoPrograma]}}>
+                        {item.estadoPrograma}
+                      </td>
+                      <td>{item.duracion}</td>
+                      <td>{item.reportes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </Tab>
+
+        <Tab eventKey="grafico" title="Vista Gráfica">
+          <Card className="shadow">
+            <Card.Body>
+              <div className="mb-4">
+                <ButtonGroup>
+                  <Button
+                    variant={chartType === 'reportes' ? 'primary' : 'outline-primary'}
+                    onClick={() => setChartType('reportes')}
+                  >
+                    Reportes por Hora
+                  </Button>
+                  <Button
+                    variant={chartType === 'duracion' ? 'primary' : 'outline-primary'}
+                    onClick={() => setChartType('duracion')}
+                  >
+                    Duración por Programa
+                  </Button>
+                </ButtonGroup>
+              </div>
+
+              <VictoryChart domainPadding={20} horizontal>
+                <VictoryAxis
+                  style={{ tickLabels: { fontSize: 10 } }}
+                  tickFormat={chartType === 'reportes' 
+                    ? hourlyReports.map(h => h.x) 
+                    : filteredData.map(d => d.network)}
+                />
+                <VictoryAxis dependentAxis />
+                
+                <VictoryBar
+                  data={chartType === 'reportes' ? hourlyReports : filteredData}
+                  x={chartType === 'reportes' ? 'x' : 'network'}
+                  y={chartType === 'reportes' ? 'y' : 'duracion'}
+                  labels={({ datum }) => chartType === 'reportes' 
+                    ? datum.label 
+                    : `Duración: ${datum.duracion} min`}
+                  labelComponent={<VictoryTooltip />}
+                  style={{
+                    data: {
+                      fill: ({ datum }) => chartType === 'reportes' 
+                        ? '#4a90e2' 
+                        : COLOR_CONFIG.emission[datum.tipoEmision]
+                    }
+                  }}
+                />
+
+                <VictoryLegend
+                  data={chartType === 'reportes' 
+                    ? [{ name: 'Reportes por Hora', symbol: { fill: '#4a90e2' } }]
+                    : Object.entries(COLOR_CONFIG.emission).map(([key, value]) => ({
+                        name: key,
+                        symbol: { fill: value }
+                      }))
+                  }
+                  orientation="horizontal"
+                  gutter={20}
+                  style={{ labels: { fontSize: 10 } }}
+                />
+              </VictoryChart>
+            </Card.Body>
+          </Card>
+        </Tab>
+      </Tabs>
     </Container>
   );
 };
 
-export default App;
+export default ReportesProgramacion;
