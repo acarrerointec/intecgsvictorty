@@ -1,3065 +1,388 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { 
-  Container, Row, Col, Card, Table, 
-  Form, Button, ButtonGroup, Dropdown, 
-  Badge, ProgressBar, Accordion 
+  Container, Row, Col, Card, Form, 
+  Button, Badge, Accordion, InputGroup, Stack 
 } from 'react-bootstrap';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, PieChart, 
-  Pie, Cell, LineChart, Line, AreaChart, Area 
+  Pie, Cell 
 } from 'recharts';
 import { 
-  FiFilter, FiDownload, FiRefreshCw, 
-  FiBarChart2, FiPieChart, FiClock 
+  FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
+  FiCalendar, FiSliders, FiMonitor, FiClock, 
+  FiTv, FiFilm, FiType, FiInfo, FiBarChart2
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
-import 'react-date-range/dist/styles.css'; // main style file
-import 'react-date-range/dist/theme/default.css'; // theme css file
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import es from 'date-fns/locale/es';
+import data from './data/csvjson.json';
+import './ExecutiveDashboard.css';
+
+const ProgramCard = ({ program }) => (
+  <Card className="program-card h-100">
+    <Card.Body>
+      <Stack gap={2}>
+        <div className="d-flex justify-content-between align-items-start">
+          <div>
+            <Card.Title className="program-title">
+              {program["Episode Title"]}
+              <Badge bg="dark" className="ms-2">{program["Show Code"]}</Badge>
+            </Card.Title>
+            <div className="program-meta">
+              <small className="text-muted">
+                <FiClock className="me-1" />
+                {program["Start time redondeo"]} - {program.Duration}
+              </small>
+            </div>
+          </div>
+          <Badge pill bg={program.LTSA === 'Live' ? 'danger' : 'warning'} className="text-capitalize">
+            {program.LTSA}
+          </Badge>
+        </div>
+
+        <div className="program-details">
+          <Stack direction="horizontal" gap={2} className="flex-wrap">
+            <div className="detail-item">
+              <FiTv className="me-1" />
+              <span>{program.Network}</span>
+            </div>
+            <div className="detail-item">
+              <FiFilm className="me-1" />
+              <span>{program.Feed}</span>
+            </div>
+            <div className="detail-item">
+              <FiInfo className="me-1" />
+              <span>{program.Status.split('- ')[1]}</span>
+            </div>
+          </Stack>
+        </div>
+
+        <div className="program-footer">
+          <Stack direction="horizontal" className="justify-content-between">
+            <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
+              {program.EMISION}
+            </Badge>
+            <small className="text-muted">
+              {new Date(program["Start Date"]).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: 'short'
+              })}
+            </small>
+          </Stack>
+        </div>
+      </Stack>
+    </Card.Body>
+  </Card>
+);
+
+ProgramCard.propTypes = {
+  program: PropTypes.object.isRequired
+};
+
+const FilterControl = ({ label, icon, children }) => (
+  <div className="filter-control">
+    <div className="filter-label">
+      {icon} {label}
+    </div>
+    {children}
+  </div>
+);
+
+FilterControl.propTypes = {
+  label: PropTypes.string.isRequired,
+  icon: PropTypes.element.isRequired,
+  children: PropTypes.node.isRequired
+};
 
 const ExecutiveDashboard = () => {
-  // State para filtros
-  const [dateRange, setDateRange] = useState([
-    {
-      startDate: new Date('2025-02-28'),
-      endDate: new Date('2025-03-01'),
-      key: 'selection'
-    }
-  ]);
-  const [networkFilter, setNetworkFilter] = useState('Todas');
-  const [statusFilter, setStatusFilter] = useState('Todos');
-  const [viewMode, setViewMode] = useState('charts');
+  const [filters, setFilters] = useState({
+    feed: '',
+    network: '',
+    status: '',
+    ltsa: '',
+    search: ''
+  });
 
-  // Datos procesados (basados en tu feed)
-  const rawData = [  
+  const [dateRange, setDateRange] = useState([{
+    startDate: new Date(),
+    endDate: new Date(),
+    key: 'selection'
+  }]);
 
-  
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "CPUR435",
-        "Program": "",
-        "Title #": 435,
-        "Episode Title": "UFC Recargado: UFC 266: Volkanovski vs. Ortega.",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:00:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 314,
-        "Show Code": "SBMS23",
-        "Program": "",
-        "Title #": 23,
-        "Episode Title": "Liga Mexicana de Softbol .",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:25:00",
-        "End Time": "01:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:05:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 178,
-        "Show Code": "SOXP649",
-        "Program": "",
-        "Title #": 649,
-        "Episode Title": "Liga Expansión MX. Ronda: Jornada 8.",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:55:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:05:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SBMS23",
-        "Program": "",
-        "Title #": 23,
-        "Episode Title": "Liga Mexicana de Softbol .",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:55:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:05:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SBMS23",
-        "Program": "",
-        "Title #": 23,
-        "Episode Title": "Liga Mexicana de Softbol .",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:55:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:05:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "BOKO1601",
-        "Program": "",
-        "Title #": 1601,
-        "Episode Title": "ESPN KnockOut: Top Rank-Emanuel Navarrete. Oscar Valdez.",
-        "Dow": "THU",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "23:00:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 53,
-        "Show Code": "SOLS818",
-        "Program": "",
-        "Title #": 818,
-        "Episode Title": "LALIGA Show.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "00:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOCC985",
-        "Program": "",
-        "Title #": 985,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "TNMO372",
-        "Program": "",
-        "Title #": 372,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Quarterfinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRDB15231",
-        "Program": "",
-        "Title #": 15231,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRCC1106",
-        "Program": "",
-        "Title #": 1106,
-        "Episode Title": "SportsCenter. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "TNMO372",
-        "Program": "",
-        "Title #": 372,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Quarterfinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRDB15231",
-        "Program": "",
-        "Title #": 15231,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "01:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 314,
-        "Show Code": "BKND2461",
-        "Program": "",
-        "Title #": 2461,
-        "Episode Title": "NBA G League-Indiana Mad Ants. San Diego Clippers. Estadio: Frontwave Arena.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "4 - Publicado / Published"
-      },
-      {
-        "Feed": "A",
-        "Network": 314,
-        "Show Code": "SOCC1037",
-        "Program": "",
-        "Title #": 1037,
-        "Episode Title": "2025 Concacaf Champions Cup-Vancouver Whitecaps FC. Deportivo Saprissa. Estadio: BC Place. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 315,
-        "Show Code": "SOCC985",
-        "Program": "",
-        "Title #": 985,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "00:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOGR1364",
-        "Program": "",
-        "Title #": 1364,
-        "Episode Title": "German Cup.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "01:00:00",
-        "End Time": "03:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOAR4865",
-        "Program": "",
-        "Title #": 4865,
-        "Episode Title": "Copa de La Liga Profesional 2024-Estudiantes de La Plata. Belgrano.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "01:00:00",
-        "End Time": "03:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRLD24985",
-        "Program": "",
-        "Title #": 24985,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "01:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRLD24985",
-        "Program": "",
-        "Title #": 24985,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "01:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SOECR181",
-        "Program": "",
-        "Title #": 181,
-        "Episode Title": "Equipo F Centroamérica. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "01:00:00",
-        "End Time": "02:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 178,
-        "Show Code": "BKNH860",
-        "Program": "",
-        "Title #": 860,
-        "Episode Title": "NBA Thursday-Denver Nuggets. Milwaukee Bucks. Estadio: Fiserv Forum.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "02:00:00",
-        "End Time": "04:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "02:00:00",
-        "End Time": "03:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "02:00:00",
-        "End Time": "03:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 315,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "02:00:00",
-        "End Time": "03:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "4 - Publicado / Published"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOCC983",
-        "Program": "",
-        "Title #": 983,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "03:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOEXF360",
-        "Program": "",
-        "Title #": 360,
-        "Episode Title": "Expediente Fútbol - PREVIA FECHA 2 SAF 18/19 EDITADO.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "03:00:00",
-        "End Time": "04:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "03:00:00",
-        "End Time": "04:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "03:00:00",
-        "End Time": "04:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 315,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "03:00:00",
-        "End Time": "04:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "4 - Publicado / Published"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOHI2288",
-        "Program": "",
-        "Title #": 2288,
-        "Episode Title": "Italian Serie A Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:00:00",
-        "End Time": "05:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 178,
-        "Show Code": "BKNH861",
-        "Program": "",
-        "Title #": 861,
-        "Episode Title": "NBA Thursday-New Orleans Pelicans. Phoenix Suns. Estadio: Footprint Center.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "04:30:00",
-        "End Time": "07:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOAP716",
-        "Program": "",
-        "Title #": 716,
-        "Episode Title": "French Ligue 1 Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "05:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "CPUL380",
-        "Program": "",
-        "Title #": 380,
-        "Episode Title": "UFC Unleashed.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:00:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOEH69",
-        "Program": "",
-        "Title #": 69,
-        "Episode Title": "EFL Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "05:30:00",
-        "End Time": "06:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOAR4854",
-        "Program": "",
-        "Title #": 4854,
-        "Episode Title": "Copa de La Liga Profesional 2024-River Plate. Argentinos Jrs..",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "08:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOIU8473",
-        "Program": "",
-        "Title #": 8473,
-        "Episode Title": "UEFA Champions League-Inter Milan. Estrella Roja.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "08:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "07:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "07:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "07:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "06:00:00",
-        "End Time": "07:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SRID6590",
-        "Program": "",
-        "Title #": 6590,
-        "Episode Title": "SportsCenter.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "07:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SRID6590",
-        "Program": "",
-        "Title #": 6590,
-        "Episode Title": "SportsCenter.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "07:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "03:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRCC1106",
-        "Program": "",
-        "Title #": 1106,
-        "Episode Title": "SportsCenter. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "07:00:00",
-        "End Time": "08:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "TAEE107",
-        "Program": "",
-        "Title #": 107,
-        "Episode Title": "ESPN Enfocados. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "07:00:00",
-        "End Time": "08:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "9 - Finalizado"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "SOLS818",
-        "Program": "",
-        "Title #": 818,
-        "Episode Title": "LALIGA Show.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "07:30:00",
-        "End Time": "08:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 654,
-        "Show Code": "SOEI891",
-        "Program": "",
-        "Title #": 891,
-        "Episode Title": "Goles de la Premier League.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "09:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOIM17980",
-        "Program": "",
-        "Title #": 17980,
-        "Episode Title": "Serie A 2024/2025-Hellas Verona. Fiorentina. Estadio: Stadio Marc'Antonio Bentegodi. Ronda: Fecha #26.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOAP716",
-        "Program": "",
-        "Title #": 716,
-        "Episode Title": "French Ligue 1 Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "08:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOECR181",
-        "Program": "",
-        "Title #": 181,
-        "Episode Title": "Equipo F Centroamérica. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "09:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOGF107",
-        "Program": "",
-        "Title #": 107,
-        "Episode Title": "Generación Futbol. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "09:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 418,
-        "Show Code": "TNWK1945",
-        "Program": "",
-        "Title #": 1945,
-        "Episode Title": "ATP Tour: This Week.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:00:00",
-        "End Time": "08:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 53,
-        "Show Code": "SOLS818",
-        "Program": "",
-        "Title #": 818,
-        "Episode Title": "LALIGA Show.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:30:00",
-        "End Time": "09:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOEH69",
-        "Program": "",
-        "Title #": 69,
-        "Episode Title": "EFL Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "08:30:00",
-        "End Time": "09:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOEXF360",
-        "Program": "",
-        "Title #": 360,
-        "Episode Title": "Expediente Fútbol - PREVIA FECHA 2 SAF 18/19 EDITADO.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:00:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "BKAB1935",
-        "Program": "",
-        "Title #": 1935,
-        "Episode Title": "NBA Action.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:30:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 428,
-        "Show Code": "BKAB1935",
-        "Program": "",
-        "Title #": 1935,
-        "Episode Title": "NBA Action.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "09:30:00",
-        "End Time": "10:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SRIAL85",
-        "Program": "",
-        "Title #": 85,
-        "Episode Title": "SportsCenter. Estadio: Estudio de ESPN.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SRIAL85",
-        "Program": "",
-        "Title #": 85,
-        "Episode Title": "SportsCenter. Estadio: Estudio de ESPN.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "SOYB257",
-        "Program": "",
-        "Title #": 257,
-        "Episode Title": "Bundesliga Preview Show 24/25.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "10:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "BOKO1601",
-        "Program": "",
-        "Title #": 1601,
-        "Episode Title": "ESPN KnockOut: Top Rank-Emanuel Navarrete. Oscar Valdez.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOIU8474",
-        "Program": "",
-        "Title #": 8474,
-        "Episode Title": "UEFA Champions League-Lille. Real Madrid. Estadio: Estadio Bernabeu. Ronda: Fecha #2.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRCC1106",
-        "Program": "",
-        "Title #": 1106,
-        "Episode Title": "SportsCenter. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:00:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 179,
-        "Show Code": "BKAB1935",
-        "Program": "",
-        "Title #": 1935,
-        "Episode Title": "NBA Action.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:30:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 315,
-        "Show Code": "BKAB1935",
-        "Program": "",
-        "Title #": 1935,
-        "Episode Title": "NBA Action.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "10:30:00",
-        "End Time": "11:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SOFTW1856",
-        "Program": "",
-        "Title #": 1856,
-        "Episode Title": "ESPN F12.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "13:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "B",
-        "Network": 17,
-        "Show Code": "AABD4918",
-        "Program": "",
-        "Title #": 4918,
-        "Episode Title": "YR testing 17, focusing on 426 child network.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "11:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Live",
-        "Status": "3 - Aprobado / Released"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SOFTW1856",
-        "Program": "",
-        "Title #": 1856,
-        "Episode Title": "ESPN F12.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "13:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "B",
-        "Network": 426,
-        "Show Code": "AABD4918",
-        "Program": "",
-        "Title #": 4918,
-        "Episode Title": "YR testing 17, focusing on 426 child network.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "11:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SOME41886",
-        "Program": "",
-        "Title #": 41886,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "11:00:00",
-        "End Time": "12:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOAP716",
-        "Program": "",
-        "Title #": 716,
-        "Episode Title": "French Ligue 1 Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "12:00:00",
-        "End Time": "12:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOAR4854",
-        "Program": "",
-        "Title #": 4854,
-        "Episode Title": "Copa de La Liga Profesional 2024-River Plate. Argentinos Jrs..",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "12:00:00",
-        "End Time": "14:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "12:00:00",
-        "End Time": "13:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRMD16003",
-        "Program": "",
-        "Title #": 16003,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "12:00:00",
-        "End Time": "13:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOEH69",
-        "Program": "",
-        "Title #": 69,
-        "Episode Title": "EFL Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "12:30:00",
-        "End Time": "13:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SOFPE1136",
-        "Program": "",
-        "Title #": 1136,
-        "Episode Title": "ESPN F90 .",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "13:00:00",
-        "End Time": "15:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SOFPE1136",
-        "Program": "",
-        "Title #": 1136,
-        "Episode Title": "ESPN F90 .",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "13:00:00",
-        "End Time": "15:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOCC982",
-        "Program": "",
-        "Title #": 982,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "13:00:00",
-        "End Time": "15:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOEXF360",
-        "Program": "",
-        "Title #": 360,
-        "Episode Title": "Expediente Fútbol - PREVIA FECHA 2 SAF 18/19 EDITADO.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "14:00:00",
-        "End Time": "15:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "SOISA90",
-        "Program": "",
-        "Title #": 90,
-        "Episode Title": "Inside Serie A.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "14:30:00",
-        "End Time": "15:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOCC983",
-        "Program": "",
-        "Title #": 983,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "15:00:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 653,
-        "Show Code": "SOYB257",
-        "Program": "",
-        "Title #": 257,
-        "Episode Title": "Bundesliga Preview Show 24/25.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "15:00:00",
-        "End Time": "15:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "CPUL380",
-        "Program": "",
-        "Title #": 380,
-        "Episode Title": "UFC Unleashed.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "15:00:00",
-        "End Time": "16:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRIG10284",
-        "Program": "",
-        "Title #": 10284,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "15:00:00",
-        "End Time": "16:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRIG10284",
-        "Program": "",
-        "Title #": 10284,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "15:00:00",
-        "End Time": "16:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 651,
-        "Show Code": "SOYB257",
-        "Program": "",
-        "Title #": 257,
-        "Episode Title": "Bundesliga Preview Show 24/25.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "16:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOAP716",
-        "Program": "",
-        "Title #": 716,
-        "Episode Title": "French Ligue 1 Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "16:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOMF9118",
-        "Program": "",
-        "Title #": 9118,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOMF9118",
-        "Program": "",
-        "Title #": 9118,
-        "Episode Title": "Futbol Picante. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 9,
-        "Show Code": "SOISA90",
-        "Program": "",
-        "Title #": 90,
-        "Episode Title": "Inside Serie A.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "16:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 109,
-        "Show Code": "SOISA90",
-        "Program": "",
-        "Title #": 90,
-        "Episode Title": "Inside Serie A.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:00:00",
-        "End Time": "16:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SRARN463",
-        "Program": "",
-        "Title #": 463,
-        "Episode Title": "Sportscenter.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:30:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SRARN463",
-        "Program": "",
-        "Title #": 463,
-        "Episode Title": "Sportscenter.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:30:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOEH69",
-        "Program": "",
-        "Title #": 69,
-        "Episode Title": "EFL Highlights.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:30:00",
-        "End Time": "17:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 418,
-        "Show Code": "SOAH2176",
-        "Program": "",
-        "Title #": 2176,
-        "Episode Title": "English League Championship.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "16:50:00",
-        "End Time": "19:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:10:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOCC984",
-        "Program": "",
-        "Title #": 984,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "17:00:00",
-        "End Time": "19:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOAR4854",
-        "Program": "",
-        "Title #": 4854,
-        "Episode Title": "Copa de La Liga Profesional 2024-River Plate. Argentinos Jrs..",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "17:00:00",
-        "End Time": "19:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRCC585",
-        "Program": "",
-        "Title #": 585,
-        "Episode Title": "SportsCenter. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "17:00:00",
-        "End Time": "18:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOEM108",
-        "Program": "",
-        "Title #": 108,
-        "Episode Title": "Equipo Futbol. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "17:00:00",
-        "End Time": "18:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SOECR182",
-        "Program": "",
-        "Title #": 182,
-        "Episode Title": "Equipo F Centroamérica. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "18:00:00",
-        "End Time": "19:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "TAEE108",
-        "Program": "",
-        "Title #": 108,
-        "Episode Title": "ESPN Enfocados. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "18:00:00",
-        "End Time": "19:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "CPUL380",
-        "Program": "",
-        "Title #": 380,
-        "Episode Title": "UFC Unleashed.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "19:00:00",
-        "End Time": "20:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOIU8474",
-        "Program": "",
-        "Title #": 8474,
-        "Episode Title": "UEFA Champions League-Lille. Real Madrid. Estadio: Estadio Bernabeu. Ronda: Fecha #2.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "19:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRCC846",
-        "Program": "",
-        "Title #": 846,
-        "Episode Title": "SportsCenter. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "19:00:00",
-        "End Time": "20:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SOGF108",
-        "Program": "",
-        "Title #": 108,
-        "Episode Title": "Generación Futbol. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "19:00:00",
-        "End Time": "20:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "BOKS401",
-        "Program": "",
-        "Title #": 401,
-        "Episode Title": "ESPN KnockOut.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 179,
-        "Show Code": "SOEI892",
-        "Program": "",
-        "Title #": 892,
-        "Episode Title": "Goles de la Premier League.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOAR4854",
-        "Program": "",
-        "Title #": 4854,
-        "Episode Title": "Copa de La Liga Profesional 2024-River Plate. Argentinos Jrs..",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "22:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRED8727",
-        "Program": "",
-        "Title #": 8727,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRED8727",
-        "Program": "",
-        "Title #": 8727,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 314,
-        "Show Code": "TASR10903",
-        "Program": "",
-        "Title #": 10903,
-        "Episode Title": "Cronómetro.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:00:00",
-        "End Time": "21:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 17,
-        "Show Code": "SRII2362",
-        "Program": "",
-        "Title #": 2362,
-        "Episode Title": "SportsCenter. Estadio: Buenos Aires.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:30:00",
-        "End Time": "23:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 426,
-        "Show Code": "SRII2362",
-        "Program": "",
-        "Title #": 2362,
-        "Episode Title": "SportsCenter. Estadio: Buenos Aires.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "20:30:00",
-        "End Time": "23:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 171,
-        "Show Code": "SRCTA1343",
-        "Program": "",
-        "Title #": 1343,
-        "Episode Title": "SportsCenter. Estadio: Buenos Aires.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "22:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 53,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 173,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 93,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 193,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "SOYB257",
-        "Program": "",
-        "Title #": 257,
-        "Episode Title": "Bundesliga Preview Show 24/25.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "CPUL380",
-        "Program": "",
-        "Title #": 380,
-        "Episode Title": "UFC Unleashed.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "22:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "SRED8292",
-        "Program": "",
-        "Title #": 8292,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "22:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "SRED8292",
-        "Program": "",
-        "Title #": 8292,
-        "Episode Title": "SportsCenter. Estadio: Studio Mexico.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "22:00:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "BKLM531",
-        "Program": "",
-        "Title #": 531,
-        "Episode Title": "NBA Esta Noche. Estadio: Estudio ESPN Sur.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:00:00",
-        "End Time": "21:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Short Turnaround",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 53,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 173,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 93,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 193,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "BKNN2303",
-        "Program": "",
-        "Title #": 2303,
-        "Episode Title": "NBA Viernes-Cleveland Cavaliers. Boston Celtics. Estadio: TD Garden.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:30:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:30:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 178,
-        "Show Code": "SOXP650",
-        "Program": "",
-        "Title #": 650,
-        "Episode Title": "Liga Expansión MX. Ronda: Jornada 8.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:55:00",
-        "End Time": "23:55:00",
-        "End Date": "28-02-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "TNMO373",
-        "Program": "",
-        "Title #": 373,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Semifinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:55:00",
-        "End Time": "23:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:35:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "TNMO373",
-        "Program": "",
-        "Title #": 373,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Semifinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "21:55:00",
-        "End Time": "23:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "01:35:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 417,
-        "Show Code": "BKAB1935",
-        "Program": "",
-        "Title #": 1935,
-        "Episode Title": "NBA Action.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:00:00",
-        "End Time": "22:30:00",
-        "End Date": "28-02-2025",
-        "Duration": "00:30:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 692,
-        "Show Code": "SOIU8562",
-        "Program": "",
-        "Title #": 8562,
-        "Episode Title": "UEFA Champions League-Juventus. Stuttgart. Estadio: Gottlieb-Daimler-Stadion. Ronda: Fecha #3.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "22:00:00",
-        "End Time": "00:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 693,
-        "Show Code": "SOCC985",
-        "Program": "",
-        "Title #": 985,
-        "Episode Title": "2025 Concacaf Champions Cup. Ronda: First Round, Second Leg.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "23:00:00",
-        "End Time": "01:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Tape",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 14,
-        "Show Code": "TNMO374",
-        "Program": "",
-        "Title #": 374,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Semifinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "23:30:00",
-        "End Time": "01:30:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 214,
-        "Show Code": "TNMO374",
-        "Program": "",
-        "Title #": 374,
-        "Episode Title": "Abierto Mexicano Telcel presentado por HSBC. Estadio: Arena GNP Seguros. Ronda: Semifinals.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "23:30:00",
-        "End Time": "01:30:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:00:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      },
-      {
-        "Feed": "A",
-        "Network": 178,
-        "Show Code": "SOXP651",
-        "Program": "",
-        "Title #": 651,
-        "Episode Title": "Liga Expansión MX. Ronda: Jornada 8.",
-        "Dow": "FRI",
-        "Start Date": "Invalid DateTime",
-        "Start Time": "23:55:00",
-        "End Time": "02:00:00",
-        "End Date": "01-03-2025",
-        "Duration": "02:05:00",
-        "LTSA": "Live",
-        "Status": "2 - Borrador / Working"
-      }
+  const [showDetails, setShowDetails] = useState(true);
 
+  const { filteredData, timeSlots } = useMemo(() => {
+    const processed = data.map(item => ({
+      ...item,
+      start: new Date(item["Start Date"].split('-').reverse().join('-')),
+      end: new Date(item["End Date"].split('-').reverse().join('-'))
+    }));
 
-]; // Aquí irían tus datos completos del CSV
+    const filtered = processed.filter(item => {
+      const { startDate, endDate } = dateRange[0];
+      const itemDate = item.start;
+      
+      const matchesDate = itemDate >= startDate && itemDate <= endDate;
+      const matchesSearch = item["Episode Title"].toLowerCase().includes(filters.search.toLowerCase()) ||
+                          item["Show Code"].toLowerCase().includes(filters.search.toLowerCase());
 
-  // Procesamiento de datos
-  const contentDistribution = [
-    { name: 'Deportes', value: 89, color: '#2E86AB' },
-    { name: 'Noticias', value: 3, color: '#F18F01' },
-    { name: 'Entretenimiento', value: 2, color: '#C73E1D' }
-  ];
+      return matchesDate && matchesSearch &&
+        (!filters.feed || item.Feed === filters.feed) &&
+        (!filters.network || item.Network === filters.network) &&
+        (!filters.status || item.Status.includes(filters.status)) &&
+        (!filters.ltsa || item.LTSA === filters.ltsa);
+    });
 
-  const statusDistribution = [
-    { name: 'Borrador', value: 85, color: '#FFC107' },
-    { name: 'Publicado', value: 3, color: '#28A745' },
-    { name: 'Aprobado', value: 1, color: '#17A2B8' },
-    { name: 'Finalizado', value: 5, color: '#6C757D' }
-  ];
+    const slots = Array(8).fill().map((_, i) => ({
+      hour: `${i*3}:00 - ${i*3+3}:00`,
+      Live: 0,
+      Tape: 0,
+      Short: 0
+    }));
 
-  const networkActivity = [
-    { name: 'ESPN', value: 72, color: '#2E86AB' },
-    { name: 'ESPN2', value: 2, color: '#F18F01' },
-    { name: 'Otras', value: 20, color: '#6C757D' }
-  ];
+    filtered.forEach(item => {
+      const hour = parseInt(item["Start Time"].split(':')[0]);
+      const slot = Math.floor(hour / 3);
+      if (slot < 8) slots[slot][item.LTSA === 'Short Turnaround' ? 'Short' : item.LTSA]++;
+    });
 
-  const timeSlots = [
-    { hour: '00-03', live: 8, tape: 12 },
-    { hour: '03-06', live: 2, tape: 18 },
-    { hour: '06-09', live: 1, tape: 15 },
-    { hour: '09-12', live: 0, tape: 10 },
-    { hour: '12-15', live: 3, tape: 14 },
-    { hour: '15-18', live: 5, tape: 9 },
-    { hour: '18-21', live: 12, tape: 6 },
-    { hour: '21-00', live: 15, tape: 4 }
-  ];
+    return { filteredData: filtered, timeSlots: slots };
+  }, [data, dateRange, filters]);
 
-  const programTypes = [
-    { type: 'Fútbol', count: 42, percent: 45 },
-    { type: 'Básquetbol', count: 18, percent: 19 },
-    { type: 'UFC/Boxeo', count: 8, percent: 9 },
-    { type: 'Tenis', count: 6, percent: 6 },
-    { type: 'Otros Deportes', count: 14, percent: 15 },
-    { type: 'Noticias', count: 3, percent: 3 },
-    { type: 'Entretenimiento', count: 2, percent: 2 }
-  ];
-
-  // Métricas clave
-  const totalPrograms = rawData.length;
-  const livePrograms = rawData.filter(p => p.LTSA === 'Live').length;
-  const tapePrograms = totalPrograms - livePrograms;
-  const avgDuration = '2h 15m'; // Calculado de los datos
+  const metrics = useMemo(() => ({
+    total: filteredData.length,
+    live: filteredData.filter(d => d.LTSA === 'Live').length,
+    platform: filteredData.filter(d => d.EMISION === 'PLATAFORMA').length,
+    linear: filteredData.filter(d => d.EMISION === 'LINEAL').length
+  }), [filteredData]);
 
   return (
-    <Container fluid className="px-4 py-4 executive-dashboard">
-      {/* Header con título y controles */}
-      <Row className="mb-4 align-items-center">
-        <Col md={6}>
-          <h1 className="dashboard-title">
-            <FiBarChart2 className="me-2" />
-            Panel de Control Ejecutivo - Programación
-          </h1>
-          <p className="text-muted mb-0">Resumen completo del 28/02/2025 al 01/03/2025</p>
+    <Container fluid className="executive-dashboard">
+      {/* Header */}
+      <Row className="dashboard-header align-items-center mb-4">
+        <Col md={8}>
+          <Stack direction="horizontal" gap={3} className="align-items-center">
+            <FiMonitor size={32} className="text-primary" />
+            <div>
+              <h1 className="mb-0">Panel de Programación en Vivo</h1>
+              <div className="date-display">
+                <FiCalendar className="me-2" />
+                {dateRange[0].startDate.toLocaleDateString('es-ES', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
+          </Stack>
         </Col>
-        <Col md={6} className="d-flex justify-content-end">
-          <ButtonGroup className="me-3">
-            <Button 
-              variant={viewMode === 'charts' ? 'primary' : 'outline-secondary'}
-              onClick={() => setViewMode('charts')}
-            >
-              <FiBarChart2 /> Gráficos
-            </Button>
-            <Button 
-              variant={viewMode === 'tables' ? 'primary' : 'outline-secondary'}
-              onClick={() => setViewMode('tables')}
-            >
-              <FiPieChart /> Tablas
-            </Button>
-          </ButtonGroup>
-          
-          <Dropdown className="me-3">
-            <Dropdown.Toggle variant="outline-secondary">
-              <FiFilter /> Filtros
-            </Dropdown.Toggle>
-            <Dropdown.Menu className="p-3 filter-menu">
-              <Form.Group className="mb-3">
-                <Form.Label>Red:</Form.Label>
-                <Form.Select 
-                  value={networkFilter}
-                  onChange={(e) => setNetworkFilter(e.target.value)}
-                >
-                  <option>Todas</option>
-                  <option>A - ESPN</option>
-                  <option>B - ESPN2</option>
-                  {/* Otras redes */}
-                </Form.Select>
-              </Form.Group>
-              
-              <Form.Group className="mb-3">
-                <Form.Label>Estado:</Form.Label>
-                <Form.Select 
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option>Todos</option>
-                  <option>Borrador</option>
-                  <option>Publicado</option>
-                  <option>Aprobado</option>
-                  <option>Finalizado</option>
-                </Form.Select>
-              </Form.Group>
-              
-              <Form.Group>
-                <Form.Label>Rango de fechas:</Form.Label>
-                <DateRangePicker
-                  ranges={dateRange}
-                  onChange={item => setDateRange([item.selection])}
-                  staticRanges={[]}
-                  inputRanges={[]}
-                />
-              </Form.Group>
-            </Dropdown.Menu>
-          </Dropdown>
-          
-          <Button variant="outline-primary">
-            <FiDownload /> Exportar
+        
+        <Col md={4} className="text-end">
+          <Button 
+            variant="outline-primary" 
+            onClick={() => setShowDetails(!showDetails)}
+            aria-label={showDetails ? "Ocultar detalles" : "Mostrar detalles"}
+            className="me-2"
+          >
+            {showDetails ? <FiEyeOff /> : <FiEye />}
+          </Button>
+          <Button variant="primary">
+            <FiDownload className="me-2" /> Exportar
           </Button>
         </Col>
       </Row>
 
-      {/* KPI Cards */}
-      <Row className="mb-4">
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="text-uppercase text-muted mb-0">Programas Totales</h6>
-                  <h2 className="mb-0">{totalPrograms}</h2>
-                </div>
-                <div className="kpi-icon bg-primary">
-                  <FiClock size={24} />
-                </div>
-              </div>
-              <ProgressBar now={100} variant="primary" className="mt-3" style={{ height: '4px' }} />
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="text-uppercase text-muted mb-0">Contenido en Vivo</h6>
-                  <h2 className="mb-0">{livePrograms} <small className="text-muted">({Math.round((livePrograms/totalPrograms)*100)}%)</small></h2>
-                </div>
-                <div className="kpi-icon bg-success">
-                  <FiRefreshCw size={24} />
-                </div>
-              </div>
-              <ProgressBar now={(livePrograms/totalPrograms)*100} variant="success" className="mt-3" style={{ height: '4px' }} />
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="text-uppercase text-muted mb-0">Contenido Grabado</h6>
-                  <h2 className="mb-0">{tapePrograms} <small className="text-muted">({Math.round((tapePrograms/totalPrograms)*100)}%)</small></h2>
-                </div>
-                <div className="kpi-icon bg-info">
-                  <FiDownload size={24} />
-                </div>
-              </div>
-              <ProgressBar now={(tapePrograms/totalPrograms)*100} variant="info" className="mt-3" style={{ height: '4px' }} />
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="text-uppercase text-muted mb-0">Duración Promedio</h6>
-                  <h2 className="mb-0">{avgDuration}</h2>
-                </div>
-                <div className="kpi-icon bg-warning">
-                  <FiClock size={24} />
-                </div>
-              </div>
-              <ProgressBar now={100} variant="warning" className="mt-3" style={{ height: '4px' }} />
-            </Card.Body>
-          </Card>
-        </Col>
+      {/* Filtros */}
+      <Card className="main-filters mb-4">
+        <Card.Body>
+          <Row className="g-3">
+            <Col xl={3} lg={6}>
+              <FilterControl label="Rango de fechas" icon={<FiCalendar />}>
+                <DateRangePicker
+                  ranges={dateRange}
+                  onChange={ranges => setDateRange([ranges.selection])}
+                  locale={es}
+                  rangeColors={['#2E86AB']}
+                  showPreview={false}
+                  showDateDisplay={false}
+                  editableDateInputs
+                  moveRangeOnFirstSelection={false}
+                />
+              </FilterControl>
+            </Col>
+
+            <Col xl={3} lg={6}>
+              <FilterControl label="Tipo de contenido" icon={<FiSliders />}>
+                <Form.Select
+                  value={filters.ltsa}
+                  onChange={e => setFilters(prev => ({...prev, ltsa: e.target.value}))}
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="Live">En vivo</option>
+                  <option value="Tape">Grabado</option>
+                  <option value="Short Turnaround">Producción rápida</option>
+                </Form.Select>
+              </FilterControl>
+            </Col>
+
+            <Col xl={4} lg={8}>
+              <FilterControl label="Búsqueda" icon={<FiSearch />}>
+                <InputGroup>
+                  <Form.Control
+                    type="text"
+                    placeholder="Buscar programa o código..."
+                    value={filters.search}
+                    onChange={e => setFilters(prev => ({...prev, search: e.target.value}))}
+                  />
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={() => setFilters(prev => ({...prev, search: ''}))}
+                    disabled={!filters.search}
+                  >
+                    ×
+                  </Button>
+                </InputGroup>
+              </FilterControl>
+            </Col>
+
+            <Col xl={2} lg={4} className="d-flex align-items-end">
+              <Button 
+                variant="outline-danger" 
+                onClick={() => setFilters({
+                  feed: '', network: '', status: '', ltsa: '', search: ''
+                })}
+                className="w-100"
+              >
+                <FiRefreshCw className="me-2" /> Limpiar
+              </Button>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {/* Métricas */}
+      <Row className="metrics-grid g-4 mb-5">
+        {[
+          { title: 'Programas totales', value: metrics.total, icon: <FiTv />, color: 'primary' },
+          { title: 'Transmisiones en vivo', value: metrics.live, icon: <FiBarChart2 />, color: 'danger' },
+          { title: 'Contenido plataforma', value: metrics.platform, icon: <FiMonitor />, color: 'info' },
+          { title: 'Contenido lineal', value: metrics.linear, icon: <FiFilm />, color: 'warning' }
+        ].map((metric, index) => (
+          <Col xl={3} lg={6} key={index}>
+            <Card className={`metric-card metric-${metric.color}`}>
+              <Card.Body>
+                <Stack direction="horizontal" className="align-items-center">
+                  <div className="metric-icon">
+                    {metric.icon}
+                  </div>
+                  <div className="ms-3">
+                    <div className="metric-value">{metric.value}</div>
+                    <div className="metric-label">{metric.title}</div>
+                  </div>
+                </Stack>
+              </Card.Body>
+            </Card>
+          </Col>
+        ))}
       </Row>
 
-      {/* Sección principal de gráficos/tablas */}
-      {viewMode === 'charts' ? (
-        <Row className="mb-4">
-          <Col xl={6} lg={12} className="mb-4">
-            <Card className="h-100">
-              <Card.Header className="d-flex justify-content-between align-items-center">
-                <h5>Distribución de Contenidos</h5>
-                <Dropdown>
-                  <Dropdown.Toggle variant="link" id="content-distribution-dropdown">
-                    Opciones
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    <Dropdown.Item>Ver datos</Dropdown.Item>
-                    <Dropdown.Item>Exportar</Dropdown.Item>
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Card.Header>
-              <Card.Body>
-                <div style={{ height: '350px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={contentDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={120}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {contentDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value} programas`, 'Cantidad']} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-          
-          <Col xl={6} lg={12} className="mb-4">
-            <Card className="h-100">
-              <Card.Header>
-                <h5>Estado de Programación</h5>
-              </Card.Header>
-              <Card.Body>
-                <div style={{ height: '350px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={statusDistribution}
-                      layout="vertical"
-                      margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" />
-                      <Tooltip formatter={(value) => [`${value} programas`, 'Cantidad']} />
-                      <Legend />
-                      <Bar dataKey="value" name="Programas" fill="#8884d8">
-                        {statusDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-          
-          <Col xl={6} lg={12} className="mb-4">
-            <Card className="h-100">
-              <Card.Header>
-                <h5>Actividad por Red</h5>
-              </Card.Header>
-              <Card.Body>
-                <div style={{ height: '350px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={networkActivity}
-                      margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`${value} programas`, 'Cantidad']} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#8884d8" 
-                        fill="#8884d8" 
-                        fillOpacity={0.2} 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-          
-          <Col xl={6} lg={12} className="mb-4">
-            <Card className="h-100">
-              <Card.Header>
-                <h5>Programación por Franja Horaria</h5>
-              </Card.Header>
-              <Card.Body>
-                <div style={{ height: '350px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={timeSlots}
-                      margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="hour" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="live" 
-                        stroke="#28A745" 
-                        name="En vivo" 
-                        strokeWidth={2} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="tape" 
-                        stroke="#17A2B8" 
-                        name="Grabado" 
-                        strokeWidth={2} 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      ) : (
-        <Row className="mb-4">
-          <Col lg={6} className="mb-4">
-            <Card className="h-100">
-              <Card.Header>
-                <h5>Detalle de Programas</h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table striped hover responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Red</th>
-                      <th>Título</th>
-                      <th>Hora</th>
-                      <th>Duración</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rawData.slice(0, 10).map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.Network}</td>
-                        <td className="text-truncate" style={{ maxWidth: '150px' }} title={item['Episode Title']}>
-                          {item['Episode Title']}
-                        </td>
-                        <td>{item['Start Time']}</td>
-                        <td>{item.Duration}</td>
-                        <td>
-                          <Badge bg={
-                            item.Status.includes('Borrador') ? 'warning' :
-                            item.Status.includes('Publicado') ? 'success' :
-                            item.Status.includes('Aprobado') ? 'info' : 'secondary'
-                          }>
-                            {item.Status.split('-')[1].trim()}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-              <Card.Footer className="text-end">
-                <Button variant="link">Ver todos (94)</Button>
-              </Card.Footer>
-            </Card>
-          </Col>
-          
-          <Col lg={6} className="mb-4">
-            <Card className="h-100">
-              <Card.Header>
-                <h5>Distribución por Tipo de Programa</h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table striped hover responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Cantidad</th>
-                      <th>Porcentaje</th>
-                      <th>Gráfico</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {programTypes.map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.type}</td>
-                        <td>{item.count}</td>
-                        <td>{item.percent}%</td>
-                        <td>
-                          <ProgressBar 
-                            now={item.percent} 
-                            variant={
-                              index === 0 ? 'primary' :
-                              index === 1 ? 'success' :
-                              index === 2 ? 'danger' :
-                              index === 3 ? 'info' :
-                              index === 4 ? 'warning' : 'secondary'
-                            } 
-                            style={{ height: '20px' }} 
-                            label={`${item.percent}%`}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {/* Sección de detalles */}
-      <Row>
-        <Col>
-          <Card>
-            <Card.Header>
-              <h5>Análisis Detallado</h5>
+      {/* Gráficos */}
+      <Row className="g-4 mb-5">
+        <Col xl={8}>
+          <Card className="chart-card">
+            <Card.Header className="chart-header">
+              <FiBarChart2 className="me-2" />
+              Distribución horaria de programación
             </Card.Header>
             <Card.Body>
-              <Accordion defaultActiveKey="0">
-                <Accordion.Item eventKey="0">
-                  <Accordion.Header>Distribución por Deporte</Accordion.Header>
-                  <Accordion.Body>
-                    <Row>
-                      <Col md={6}>
-                        <h6>Fútbol</h6>
-                        <p>42 programas (45%) - Principalmente Liga MX, Concacaf Champions Cup y UEFA Champions League</p>
-                        <ProgressBar now={45} variant="primary" className="mb-3" />
-                        
-                        <h6>Básquetbol</h6>
-                        <p>18 programas (19%) - NBA, NBA G League</p>
-                        <ProgressBar now={19} variant="success" className="mb-3" />
-                      </Col>
-                      <Col md={6}>
-                        <h6>UFC/Boxeo</h6>
-                        <p>8 programas (9%) - UFC Recargado, ESPN KnockOut</p>
-                        <ProgressBar now={9} variant="danger" className="mb-3" />
-                        
-                        <h6>Tenis</h6>
-                        <p>6 programas (6%) - Abierto Mexicano Telcel</p>
-                        <ProgressBar now={6} variant="info" className="mb-3" />
-                      </Col>
-                    </Row>
-                  </Accordion.Body>
-                </Accordion.Item>
-                
-                <Accordion.Item eventKey="1">
-                  <Accordion.Header>Estados de Programación</Accordion.Header>
-                  <Accordion.Body>
-                    <Row>
-                      <Col md={6}>
-                        <h6>Borrador / Working</h6>
-                        <p>85 programas (90.4%) - En proceso de preparación</p>
-                        <ProgressBar now={90.4} variant="warning" className="mb-3" />
-                        
-                        <h6>Publicado / Published</h6>
-                        <p>3 programas (3.2%) - Listos para transmisión</p>
-                        <ProgressBar now={3.2} variant="success" className="mb-3" />
-                      </Col>
-                      <Col md={6}>
-                        <h6>Aprobado / Released</h6>
-                        <p>1 programa (1.1%) - Aprobado para transmisión</p>
-                        <ProgressBar now={1.1} variant="info" className="mb-3" />
-                        
-                        <h6>Finalizado</h6>
-                        <p>5 programas (5.3%) - Transmisión completada</p>
-                        <ProgressBar now={5.3} variant="secondary" className="mb-3" />
-                      </Col>
-                    </Row>
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
+              <div style={{ height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={timeSlots}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="hour" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Live" fill="#dc3545" name="En vivo" />
+                    <Bar dataKey="Tape" fill="#17a2b8" name="Grabado" />
+                    <Bar dataKey="Short" fill="#ffc107" name="Producción rápida" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col xl={4}>
+          <Card className="chart-card">
+            <Card.Header className="chart-header">
+              <PieChart className="me-2" />
+              Distribución de plataformas
+            </Card.Header>
+            <Card.Body>
+              <div style={{ height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Plataforma', value: metrics.platform },
+                        { name: 'Lineal', value: metrics.linear }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      <Cell key="Plataforma" fill="#2E86AB" />
+                      <Cell key="Lineal" fill="#F18F01" />
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </Card.Body>
           </Card>
         </Col>
       </Row>
+
+      {/* Tarjetas de Programación */}
+      <Accordion activeKey={showDetails ? 'details' : null}>
+        <Card className="programs-accordion">
+          <Accordion.Item eventKey="details">
+            <Card.Header className="details-header">
+              <Stack direction="horizontal" className="justify-content-between w-100">
+                <Stack direction="horizontal" gap={3} className="align-items-center">
+                  <h5 className="mb-0">Programación detallada</h5>
+                  <Badge bg="dark" pill>{filteredData.length}</Badge>
+                </Stack>
+                <small className="text-muted">
+                  {dateRange[0].startDate.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'long'
+                  })}
+                </small>
+              </Stack>
+            </Card.Header>
+            
+            <Accordion.Body>
+              <Row xs={1} md={2} lg={3} className="g-4">
+                {filteredData.map(program => (
+                  <Col key={`${program["Show Code"]}-${program["Start Date"]}`}>
+                    <ProgramCard program={program} />
+                  </Col>
+                ))}
+              </Row>
+            </Accordion.Body>
+          </Accordion.Item>
+        </Card>
+      </Accordion>
     </Container>
   );
 };

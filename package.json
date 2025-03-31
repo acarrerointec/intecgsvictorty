@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mui/material": "^7.0.0",
+    "@mui/material": "^7.0.1",
     "@mui/x-charts": "^7.28.0",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
+    "date-fns": "^4.1.0",
     "firebase": "^11.3.1",
     "jspdf": "^3.0.0",
+    "prop-types": "^15.8.1",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
     "react-date-range": "^2.0.1",

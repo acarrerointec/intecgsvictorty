@@ -1,0 +1,117 @@
+/* Tarjetas de Programa */
+.program-card {
+  transition: all 0.2s ease;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.program-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+.program-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.program-meta {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+/* Métricas */
+.metric-card {
+  border: none;
+  border-radius: 12px;
+  color: white;
+  overflow: hidden;
+}
+
+.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
+.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
+.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
+
+.metric-icon {
+  background: rgba(255,255,255,0.15);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.metric-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+/* Header */
+.dashboard-header {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.date-display {
+  font-size: 0.95rem;
+  color: #6c757d;
+}
+
+/* Filtros */
+.filter-control {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.filter-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #2E86AB;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Gráficos */
+.chart-header {
+  background: #f8f9fa;
+  border-bottom: none;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* Acordeón */
+.programs-accordion .accordion-button {
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.details-header {
+  background: #f8f9fa !important;
+  border-bottom: none;
+}

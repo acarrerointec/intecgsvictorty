@@ -6,6 +6,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import App from './App';
 import Login from './Login';
 
+
 // Crear un root para la aplicación
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
