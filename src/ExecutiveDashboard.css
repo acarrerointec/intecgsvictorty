@@ -41,6 +41,8 @@
 }
 
 .metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
+.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
+.metric-third { background: linear-gradient(135deg, #dfd169, #fae824); }
 .metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
 .metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
 .metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
