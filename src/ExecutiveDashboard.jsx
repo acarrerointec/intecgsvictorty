@@ -398,7 +398,7 @@ const ExecutiveDashboard = () => {
                         onClick={handleApplyDate}
                         className="mt-2 w-90 apply-date-btn"
                       >
-                        <FiCheck className="me-2" /> Aplicar Fecha
+                        <FiCheck className="me-2" /> Aplicar Fecha 
                       </Button>
                     </div>
                   </FilterControl>
@@ -484,7 +484,7 @@ const ExecutiveDashboard = () => {
                             })}
                             className="w-90 clear-all-btn"
                           >
-                            <FiRefreshCw className="me-2" /> Limpiar
+                            <FiRefreshCw className="me-2" /> Limpiar filtros
                           </Button>
                         </Col>
                       </Row>
