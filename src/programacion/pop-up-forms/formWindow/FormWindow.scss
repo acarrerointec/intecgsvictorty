@@ -1,0 +1,250 @@
+.form-window__wrapper {
+  background-color: rgba(#000, 0.6);
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 9rem;
+  bottom: 0;
+  z-index: 999;
+  opacity: 0;
+  height: inherit;
+
+  animation: fade-in 0.3s linear 0s 1 normal forwards;
+  display: flex;
+  justify-content: center;
+  .listing-window__copy-button{
+    cursor: pointer;
+    padding-top: 4px;
+    margin-left: 5px;
+  }
+
+  .form-window__frame { 
+    position: absolute;
+    width: 130rem;
+    //border-radius: 6.5rem 0.5rem 6.5rem 0.5rem;
+    background: linear-gradient(#eee, #777);
+    box-shadow: -0.2rem 0.2rem 0.5rem 0.2rem rgba(#000, 0.8);
+    overflow: hidden;
+    max-height: 80rem;
+    max-width: 170rem;
+    top: 6rem;
+    left: auto;
+    right: auto;
+    bottom: 8rem;
+    
+    .form-window__bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      min-height: 70rem;
+      max-height: 70rem;
+      //border-radius: 6.5rem 0.5rem 6.5rem 0.5rem;
+      background-blend-mode: multiply, multiply;
+      background-repeat: no-repeat, no-repeat;
+      //background-size: cover, 105rem 105rem;
+      background-position: center center, right center;
+      filter: blur(4px);
+      z-index: 0;
+      transform: translate(20%, 35%) scale(2) rotate(-15deg);
+      opacity: 0.5;
+    }
+
+    .form-window__botones {
+      position: absolute;
+      right: 0.7rem;
+      top: 0.7rem;
+      display: flex;
+      justify-content: flex-start;
+      padding-left: 3rem;
+
+      .form-window__btn {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        filter: drop-shadow(0 0 0 #555);
+        &:hover {
+          filter: drop-shadow(0 0 4px #000);
+        }
+      }
+
+      .form-window__btn-help {
+        @extend .form-window__btn;
+        width: 3rem;
+        height: 3rem;
+        margin-right: .5rem;
+      }
+    }
+
+    .form-window__body {
+      filter: none;
+      position: absolute;
+      z-index: 10;
+      top: 4rem;
+      left: 4rem;
+      right: 4rem;
+      bottom: 4rem;
+      background-color: rgba(#353, 0.2);
+      border-radius: 3rem 1rem 3rem 1rem;
+      overflow: hidden;
+      box-shadow: -0.2rem 0.2rem 0.4rem rgba(#000, 0.6);
+
+      .form-window__cabecera {
+        display: grid;
+        font-weight: bold;
+        height: 8.1rem;
+        min-height: 6.1rem;
+        grid-template-columns: 10rem 1fr;
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+          "titulo_1 titulo_2"
+          "titulo_1 titulo_3";
+
+        //height: 100%;
+        .form-window__sombra-texto {
+          //text-shadow: -0.1rem 0.1rem 0.5rem rgba(#eee, 0.7);
+          text-shadow: none;
+        }
+
+        .form-window__titulo_1 {
+          grid-area: titulo_1;
+          font-size: 1.5rem;
+          text-align: start;
+          background-blend-mode: multiply;
+          background-repeat: no-repeat;
+          background-size: 7rem;
+          background-position: center;
+        }
+        .form-window__titulo_2 {
+          @extend .form-window__sombra-texto;
+          grid-area: titulo_2;
+          font-size: 1.6rem;
+          justify-self: start;
+          align-self: start;
+          text-align: left;
+          white-space: nowrap;
+          display: flex;
+          flex-direction: column;
+
+          .codigo-largo-1 {
+            color: #444;
+            text-align: left;
+            white-space: nowrap;
+          }
+          .codigo-largo-2 {
+            color: #700;
+            text-align: left;
+            white-space: nowrap;
+          }
+          .codigo-largo-3 {
+            color: #037;
+            text-align: left;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+          }
+          .row1{
+            display:flex;
+            >div{
+              display: flex;
+            }
+          }
+          .row2{
+            display: flex;
+            >div{
+              display: flex;
+            }
+          }
+          .attr-descrip{
+            color:#444;
+            display: flex;
+          }
+        }
+        .form-window__titulo_3 {
+          @extend .form-window__sombra-texto;
+          grid-area: titulo_3;
+          font-size: 3rem;
+          display:flex;
+          flex-direction: row;
+          justify-content: space-between;
+          margin-right: 10px;
+          max-width: 95%;
+          .actions-section{
+            display: flex;
+            .action-button{
+              margin-right: 6px;
+              img{
+                margin-right: 6px;
+              }
+              background-color: #dbdbdb;
+              border: 2px solid #484848;
+              border-radius: 6px;
+              font-size: 14px;
+              padding: 0px 18px;
+              cursor: pointer;
+              color: #484848;
+              font-weight: 500;
+              height: 32px;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .button-disabled{
+              border: 2px solid #c1bfbf;
+              color: #c1bfbf;
+              cursor: not-allowed;
+            }
+          }
+        }
+      }
+
+      .form-window__content {
+        border-radius: 0 0 1rem 1rem;
+        overflow: hidden;
+        overflow-y: auto;
+        //min-height: 40rem;
+        //max-height: 100%;
+        height: 85%;
+        width: 100%;
+        background-blend-mode: multiply;
+        background-repeat: no-repeat;
+        background-size: 80rem 80rem;
+        background-position: 90% center;
+        transition: opacity 1s;
+        opacity: 0;
+      }
+    }
+  }
+}
+
+.onMediaTraker{
+  top:6rem;
+}
+
+.form-window__hide {
+  animation: fade-out 0.3s linear 0s 1 normal forwards;
+  //opacity: .2;
+}
+
+@keyframes fade-in {
+  0% {
+    //    background-color: rgba(#000, 0);
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    //    background-color: rgba(#000, 0.6);
+  }
+}
+
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

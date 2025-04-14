@@ -1,0 +1,126 @@
+.channels-container{
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    height: 17rem;
+    gap: 10px;
+  }
+  
+  .date-error {
+    color: #ff4545;
+  }
+  
+  .generar-playlist__wrapper {
+    z-index: 999;
+    background: linear-gradient(0deg, rgba(#013, 0.5), rgba(#310, 0.5));
+    width: 100%;
+    padding: 2rem;
+    font-size: 1.4rem;
+    position: relative;
+  
+    .generar-playlist__form {
+      overflow: visible;
+      height: 100%;
+      min-width: 20rem;
+      min-height: 20rem;
+      display: flex;
+      flex-flow: column;
+  
+      .generar-playlist__form-body {
+        gap: 1rem;
+        min-height: 35rem;
+        height: 100%;
+        overflow: visible;
+        display: flex;
+        flex-flow: column;
+  
+        .disabled-form-error{
+          position: absolute;
+          top: 60px;
+          color: #c72b2b;
+          font-size: 20px;
+          font-weight: bold;
+          z-index: 100;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: #8080805e;
+        }
+  
+        .generar-playlist__row {
+          color: #ddd;
+          flex: 0 1 auto;
+          display: flex;
+          flex-flow: row nowrap;
+          margin-top: 0.3rem;
+  
+          .generar-playlist__tag {
+            color: #ddd;
+            flex: 0 1 15rem;
+            text-align: right;
+            margin-right: 1rem;
+            &::after {
+              content: ":";
+            }
+          }
+  
+          .generar-playlist__data {
+            flex: 0 1 100%;
+            text-align: left;
+            margin-bottom: .2rem;
+  
+            .generar-playlist__artis-repor {
+              margin: 0.2rem;
+              resize: none;
+              background: linear-gradient(rgba(#000, 0.6), rgba(#000, 0));
+              border: none;
+              outline: none;
+              border-radius: 0.5rem;
+              color: #ddd;
+              width: 100%;
+              height: 100%;
+  
+              &:disabled {
+                color: #bbb;
+                font-style: oblique;
+              }
+            }
+          }
+        }
+  
+        .generar-playlist__row__expansive {
+          flex: 1 1 100%;
+        }
+  
+      }
+  
+      .generar-playlist__row-filler {
+        flex: 1 1 auto;
+      }
+  
+      .generar-playlist__row-buttons {
+        flex: 0 1 auto;
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: center;
+        align-items: center;
+        position:absolute;
+        width: 100%;
+        bottom: 3rem;
+  
+        & > div {
+          flex: 0 1 20rem;
+  
+          .button {
+            height: 3rem;
+          }
+          .disabled {
+            color: grey ;
+            background-color:white;
+            cursor:no-drop;
+          }
+        }
+      }
+    }
+  }
+  

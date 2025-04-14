@@ -1,0 +1,287 @@
+$min-font-size: 0.5rem;
+$max-font-size: 1.5rem;
+$min-title-height: 0.5rem;
+$max-title-height: 1.5rem;
+$min-screen-accepted: 1100px;
+$max-screen-accepted: 1200px;
+
+.celda__wrapper {
+  width: 98%;
+  border-radius: 0.3rem 0.3rem 0.3rem 0.3rem;
+  border-bottom: solid 0px rgba(white, 0.5);
+  border-right: solid 0px rgba(white, 0.5);
+  padding: 0;
+  z-index: 0;
+  background-repeat: no-repeat;
+  background-color: #ccc;
+  overflow: hidden;
+  font-size: 1.15rem; //1.1vw;
+  box-shadow: 0px 0px 2px 2px rgba(0, 0, 0, 0.7);
+  position: absolute;
+  box-sizing: border-box;
+  z-index: 0;
+  transition: height 0.2s, z-index 0.2s;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 0;
+  margin: 0;
+  grid-template-columns: auto;
+  opacity: 1;
+  grid-template-rows: 1.3rem repeat(6, min-content) 1fr;
+
+  
+  grid-template-areas:
+    "codigo-largo"
+    "show-descrip"
+    "lts"
+    "dura-progra"
+    "fecha"
+    "estado"
+    "epi"
+    "boton-listado-materiales"
+    "empty";
+  cursor: pointer;
+
+  &:nth-child(odd) {
+    left: 0.07rem;
+  }
+
+  & > div {
+    text-align: left;
+    padding-left: 0.3rem;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  &.celda__wrapper__continuara {
+    /*background: linear-gradient(90deg, #ccc 95%, #888 96%, #fdcd3b 40%);*/
+    background-image: url(../../../../../../images/continuacion_r.png);
+    background-position-x: right;
+    background-repeat: repeat-y;
+  }
+
+  &.celda__wrapper__continuacion {
+    /*background: linear-gradient(90deg, #fdcd3b 5%, #888 4%, #ccc 6%);*/
+    background-image: url(../../../../../../images/continuacion_l.png);
+    background-repeat: repeat-y;
+  }
+
+  /* Seciones de la celda */
+  .celda__fecha {
+    grid-area: fecha;
+  }
+
+  .celda__codigo-largo {
+    grid-area: codigo-largo;
+    background: #fff linear-gradient(0deg, rgba(#000, 0.2), rgba(#430, 0.5), rgba(#430, 0.7));
+    white-space: nowrap;
+    color: #037;
+    //text-shadow: 0 0 .2rem #fff, 0 0 .2rem #fff, 0 0 .2rem #fff;
+    font-size: 1.1rem; //1.1vw;
+    font-weight: bold;
+
+    & > p {
+      font: inherit;
+      color: #700;
+    }
+  }
+
+  // @media screen and (min-width:$max-screen-accepted) {
+  //   .celda__codigo-largo {
+  //     font-size: .2rem;
+  //   }
+  // }
+
+  // @media screen and (max-width:$min-screen-accepted) {
+  //   .celda__codigo-largo {
+  //     font-size: .9rem;
+  //   }
+  // }
+
+  .celda__row-base {
+    white-space: wrap;
+    font-size: inherit;
+    margin-left: 0;
+    padding-left: 1rem;
+    color: #222;
+    //border-bottom: solid 0.1rem #aaa;
+    //background: #bbb;
+
+    &:nth-child(2) {
+      //background: #ccc;
+      border: none;
+    }
+
+    //height: fit-content;
+  }
+
+  .celda__progra-descrip {
+    @extend .celda__row-base;
+    grid-area: progra-descrip;
+  }
+
+  .celda__show-descrip {
+    @extend .celda__row-base;
+    grid-area: show-descrip;
+    margin-left: 0;
+    padding-left: 0;
+    color: #000;
+    
+
+    & > p {
+      font-size: inherit;
+      margin: 0;
+      margin-top: 0.1rem;
+      margin-bottom: 0.1rem;
+      font-weight: 500;
+      img.celda__show-logo {
+        height: 4rem;
+        width: 4rem;
+        mix-blend-mode: multiply;
+        float: left;
+        margin-right: 0.1rem;
+        margin-bottom: 0.1rem;
+        //filter: drop-shadow(-.2rem .2rem .2rem #777);
+        //background-color: #f00;
+        transition-property: transform;
+        transition: .4s cubic-bezier(.2, .6, .7, 1.6);
+        opacity: 1;
+        transform: scale3d(0,0,0);
+      }
+
+      img.celda__show-logo2 {
+        height: 10px;
+        width: 10px;
+      }
+
+      img.celda__show-logo__lighten {
+        mix-blend-mode: multiply; //soft-light;
+      }
+
+      img.celda__show-logo__visible{
+        opacity: 1;
+        transform: scale3d(1,1,1);
+      }
+    }
+  }
+
+  .celda__depor-descrip {
+    @extend .celda__row-base;
+    grid-area: depor-descrip;
+  }
+
+  .celda__lts {
+    @extend .celda__row-base;
+    grid-area: lts;
+  }
+
+  .celda__dura-progra {
+    @extend .celda__row-base;
+    grid-area: dura-progra;
+  }
+
+  .celda__estado {
+    @extend .celda__row-base;
+    grid-area: estado;
+  }
+
+  .celda__epi {
+    @extend .celda__row-base;
+    grid-area: epi;
+  }
+
+  .celda__modulos-info {
+    @extend .celda__row-base;
+    grid-area: boton-listado-materiales;
+    .celda__modulos-info__boton{
+      height: 2rem;
+      max-width: 2rem;
+      overflow: hidden;
+    }
+  }
+
+  .celda__empty {
+    //    @extend .celda__row-base;
+    grid-area: empty;
+  }
+
+  .celda__info-adicional {
+    position: absolute;
+    max-width: 8rem;
+    height: min-content;
+    //max-height: 2rem;
+    //top         : .6vw;
+    top: 0.15rem;
+    //overflow      : hidden;
+    white-space: nowrap;
+    right: 0.1rem;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.selected{
+  border: 3px solid #fffb00
+}
+
+.celda__wrapper__altura-mouse-in {
+  height: 6rem;
+}
+
+// @media screen and (min-width: $max-screen-accepted) {
+//   .celda__wrapper {
+//     //Sets maximum font size
+//     font-size: 1.15rem;
+
+//     .celda__codigo-largo {
+//       font-size: 1.1rem;
+//     }
+//   }
+// }
+
+// @media screen and (max-width: $min-screen-accepted) {
+//   .celda__wrapper {
+//     //Sets minimum font size
+//     font-size: 1.15rem;
+
+//     .celda__codigo-largo {
+//       font-size: 1.15rem;
+//     }
+//   }
+// }
+
+.celda__wrapper__fade-in {
+  animation: celda-fade .5s forwards;
+  animation-timing-function: linear;
+  //animation: name duration timing-function delay iteration-count direction fill-mode;
+}
+
+.celda__wrapper__fade-out {
+  animation: celda-fade .5s reverse forwards;
+  animation-timing-function: linear;
+  //animation: name duration timing-function delay iteration-count direction fill-mode;
+}
+
+.celda__wrapper__visible {
+  opacity: 1;
+  pointer-events: unset;
+}
+
+.celda__wrapper__hidden {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+@keyframes celda-fade {
+  from {
+    opacity: 0.2;
+    pointer-events: none;
+  }
+  to {
+    opacity: 1;
+    pointer-events: unset;
+  }
+}

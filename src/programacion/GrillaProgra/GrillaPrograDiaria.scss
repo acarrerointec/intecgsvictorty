@@ -1,0 +1,166 @@
+.grilla-progra-tipo-emi__wrapper {
+  width: 100%;
+  padding-bottom: 100px;
+  background: none;
+  font-size: 1.4rem;
+  display: grid;
+  grid-template-columns: 3rem auto;
+  grid-template-rows: 3rem auto 3rem;
+  grid-template-areas:
+    "grilla-boton-menu grilla-cabecera"
+    "grilla-horas grilla-progra";
+  background: linear-gradient(#aaa, #333);
+  background-image: url(.././../../images/logo.svg);
+  background-size: 621.4rem;
+  background-position: -50rem -30rem;
+  background-repeat: no-repeat;
+  position: relative;
+
+  .grilla-progra-tipo-emi__boton-menu {
+    grid-area: grilla-boton-menu;
+    background: rgba(#000, 0.5);
+  }
+
+  & * {
+    box-sizing: border-box;
+  }
+
+  .grilla-progra-tipo-emi__cabecera {
+    box-sizing: border-box;
+    width: 100%;
+    grid-area: grilla-cabecera;
+    background: rgba(#000, 0.5);
+    gap: 0;
+    display: flex;
+    justify-content: flex-start;
+    color: #fff;
+    flex-flow: row nowrap;
+    //overflow: hidden;
+    border-radius: 0.3rem;
+    position: sticky;
+    top: 0rem;
+    min-width: 700px;
+
+    box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.7);
+    align-items: center;
+    z-index: 200;
+}
+
+  .grilla-progra-tipo-emi__grilla {
+    width: 100%;
+    height: 117%;
+    grid-area: grilla-progra;
+    display: flex;
+    flex-flow: row nowrap;
+    min-width: 700px;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    position: absolute;
+    left: 0;
+    transition: left 1s;
+    transform: translateZ(0) translateX(0);
+  }
+
+  .grilla-progra-tipo-emi__horas {
+    grid-area: grilla-horas;
+    box-sizing: border-box;
+    background: #05a; //#b30; //#19b; //rgb(204, 0, 0); //#0d71a6; //#1e82d7; //rgb(30, 130, 215);
+    gap: 0;
+    display: grid;
+    color: #fff;
+    grid-template-rows: repeat(24, 50px);
+    grid-template-columns: 3rem;
+    overflow: visible;
+    position: sticky;
+    left: 0;
+
+    box-shadow: 0.2rem 0 0.2rem 0.1rem rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: top;
+    z-index: 200;
+
+    margin: 0;
+    padding: 0;
+
+    .grilla-progra-tipo-emi__horas-item {
+      box-sizing: border-box;
+      position: relative;
+      border-top: solid 0.1rem #ddd;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      &:nth-child(1) {
+        border-top: none;
+      }
+
+      .grilla-progra-tipo-emi__horas-texto {
+        width: min-content;
+        height: min-content;
+        font-size: 1.4rem;
+      }
+
+      .grilla-progra-tipo-emi__horas-linea {
+        position: absolute;
+        left: 0;
+        top: 0%;
+        width: 0;
+        height: 100%;
+        border: solid rgba(#fff, 0.3) 0.01rem;
+        border-left: none;
+        border-right: none;
+        z-index: 1000;
+
+        &::before {
+          transition: opacity 0.5s;
+          content: "";
+          left: 0;
+          width: 100%;
+          height: 100%;
+          position: absolute;
+          top: 0;
+          box-shadow: 0 0 0 400rem rgba(#000, 0.4);
+          opacity: 0;
+        }
+
+        &::after {
+          content: "";
+          left: 0;
+          width: 100%;
+          height: 0;
+          position: absolute;
+          top: 50%;
+          border-bottom: dashed rgba(#fff, 0.3) 0.01rem;
+          background-color: rgba(#000, 0.3);
+          opacity: 0;
+        }
+      }
+
+      &:hover {
+        .grilla-progra-tipo-emi__horas-linea {
+          width: 100vw;
+
+          &::before {
+            transition: opacity 0.5s;
+            opacity: 1;
+          }
+
+          &::after {
+            opacity: 1;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Makes room for bottom menu
+@media screen and (max-width: 995px) {
+  .grilla-progra-tipo-emi__wrapper {
+    .grilla-progra-tipo-emi__grilla {
+      height: 117%;
+    }
+  }
+}

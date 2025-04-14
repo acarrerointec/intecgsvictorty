@@ -1,0 +1,76 @@
+.content-layout{
+  position:relative;
+  .loading-disabled{
+    position: absolute;
+    width:100%;
+    height:100%;
+    z-index: 1;
+    opacity: 0;
+  }
+  >h2{
+    margin:8px auto;
+  }
+  >form{
+    display: flex;
+    flex-direction: column;
+    width: 600px;
+    background-color: #c3c2c2;
+    opacity: .7;
+    border-radius: 16px;
+    margin: 0px auto 6px;
+    padding: 12px 24px;
+    padding-bottom:0px;
+    .form-item{
+      width: 100%;
+      display: flex;
+      font-weight: 600;
+      position: relative;
+      >span{
+        position: absolute;
+        bottom: 0;
+        font-size: 12px;
+        color: red;
+        margin-left: 90px;
+      }
+      >label{
+        width: 120px;
+        text-align: end;
+        margin-right: 8px;
+        margin-bottom: 14px;
+      }
+      >input{
+        height: 20px;
+        width: 400px;
+      }
+      >select{
+        height: 20px;
+        width: 400px;
+      }
+      .withError{
+        background-color: #ffa0a0;
+        border: 1px solid rgb(151, 2, 2);
+      }
+      textarea {
+        resize: none;
+        border-radius: 6px;
+        width: 400px;
+      }
+      .with-button{
+        width: 338px;
+        margin-right:4px;
+      }
+      >button{
+        height: 22px;
+      }
+      .input-button{
+        width: fit-content;
+      }
+    }
+    .button-submit{
+      width: 130px;
+      height: 32px;
+      color: #323232;
+      margin: 6px auto;
+    }
+  }
+}

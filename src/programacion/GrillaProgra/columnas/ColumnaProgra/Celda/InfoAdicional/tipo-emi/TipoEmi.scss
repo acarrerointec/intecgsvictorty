@@ -1,0 +1,70 @@
+//@import '../InfoAdicional.js';
+
+.info-adicional__cuadro {
+  height: 2rem;
+  width: 2rem;
+  min-width: 2rem;
+  border-radius: 0.4rem;
+  //border             : solid .1rem #555;
+  vertical-align: top;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: 100% 100%;
+  background-position: center;
+  opacity: 0;
+  animation: inflate 0.5s forwards;
+}
+
+.tag {
+  position: absolute;
+  padding-left: 0.5rem;
+  padding-right: 1.5rem;
+  right: 1rem;
+  //top: 1rem;
+  border: solid 0.1rem #333;
+  height: auto;
+  max-width: 16rem;
+  font-size: 1.3rem;
+  border-radius: 0.3rem;
+  background-color: #fff;
+  color: #000;
+  opacity: 100;
+  z-index: -1;
+  transform: scaleX(0) scaleY(0);
+  overflow: hidden;
+  transform-origin: right;
+  transition: transform 0.2s;
+  top: 0;
+}
+
+.info-adicional__tipo-emi__wrapper {
+  @extend .info-adicional__cuadro;
+  position: relative;
+  z-index: 99;
+  flex: 0 0 auto;
+  opacity: 0;
+  animation: inflate 0.5s forwards;
+
+  .info-adicional__tipo-emi__giggle {
+    @extend .info-adicional__cuadro;
+    box-sizing: border-box;
+    border-radius: 5rem;
+    border: none;
+    font-size: 1.4rem;
+    border: 0.2rem solid #333;
+    color: #eee;
+  }
+
+  .info-adicional__tipo-emi__tag {
+    color: #000;
+    @extend .tag;
+  }
+
+  &:hover {
+    .info-adicional__tipo-emi__tag {
+      transition: transform 0.2s;
+      transform: scaleX(1) scaleY(1);
+    }
+  }
+}

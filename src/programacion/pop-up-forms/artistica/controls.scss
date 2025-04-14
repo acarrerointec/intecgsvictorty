@@ -1,0 +1,40 @@
+.form-controls__row {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+
+  .form-controls__input {
+    flex: 0 0 auto;
+  }
+
+  .form-controls__undo {
+    flex: 0 0 auto;
+    padding-left: .2rem;
+  }
+
+  .form-controls__eraser {
+    flex: 0 0 auto;
+    padding-left: .2rem;
+    align-items: center;
+  }
+
+  .form-controls__button{
+    background-color: #eee;
+    border-radius: .3rem;
+    border: solid .1rem #333;
+    width: 2.5rem;
+    height: 2rem;
+    padding: .1rem;
+
+    img{
+      width: 80%;
+      height: 80%;
+      margin: .1rem;
+    }
+  }
+  .disabled{
+    color:grey;
+    background-color:white;
+    cursor: no-drop;
+  }
+}

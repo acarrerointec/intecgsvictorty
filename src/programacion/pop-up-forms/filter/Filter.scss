@@ -1,0 +1,13 @@
+.filter__wrapper{
+  display: flex;
+  flex-flow: column nowrap;
+  width: 100%;
+  
+  .filter__text{
+    width: 100%;
+    background-color: #f0ddf0;
+    border-radius: 0;
+    border: none;
+    text-align: center;
+  }
+}

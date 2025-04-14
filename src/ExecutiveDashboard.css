@@ -1,119 +1,116 @@
-/* Tarjetas de Programa */
+.executive-dashboard {
+  padding: 2rem;
+  background-color: #f0f0f0; /* Cambiado a gris más notable */
+  min-height: 100vh;
+}
+/* Consolidado de estilos de tarjetas de programa */
 .program-card {
   transition: all 0.2s ease;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: white;
+  
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  }
+  
+  &.duplicate-program {
+    border-left: 4px solid #dc3545;
+    background-color: #fff5f5;
+    
+    &::after {
+      content: "Emitido en múltiples redes";
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 0.75rem;
+      color: #dc3545;
+      font-weight: 500;
+    }
+  }
 }
 
-.program-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-}
-
-.program-title {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-.program-meta {
-  font-size: 0.85rem;
-  color: #6c757d;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  color: #495057;
-}
-
-/* Métricas */
+/* Métricas unificadas */
 .metric-card {
   border: none;
   border-radius: 12px;
   color: white;
-  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+  
+  &:hover {
+    transform: translateY(-3px);
+  }
+  
+  &.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
+  &.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+  &.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
+  &.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
+  &.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
 }
 
-.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
-.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
-.metric-third { background: linear-gradient(135deg, #dfd169, #fae824); }
-.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
-.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
-.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
-
-.metric-icon {
-  background: rgba(255,255,255,0.15);
-  padding: 12px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-}
-
-.metric-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.metric-value {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.metric-label {
-  font-size: 0.95rem;
-  opacity: 0.9;
-}
-
-/* Header */
+/* Header unificado */
 .dashboard-header {
-  padding: 1.5rem 0;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.date-display {
-  font-size: 0.95rem;
-  color: #6c757d;
-}
-
-/* Filtros */
-.filter-control {
-  background: #f8f9fa;
+  padding: 1.5rem;
+  background: white;
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+  
+  .date-display {
+    font-size: 0.95rem;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* Tooltip consolidado */
+.custom-tooltip {
+  background: white;
   padding: 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  
+  .tooltip-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #212529;
+  }
+  
+  .tooltip-body {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
 }
 
-.filter-label {
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: #2E86AB;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* Media queries unificadas */
+@media (max-width: 768px) {
+  .executive-dashboard {
+    padding: 1rem;
+  }
+  
+  .dashboard-header {
+    padding: 1rem;
+    
+    h3 {
+      font-size: 1.5rem;
+    }
+  }
+  
+  .responsive-datepicker {
+    width: 300px;
+  }
+  
+  .apply-date-btn {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
 }
 
-/* Gráficos */
-.chart-header {
-  background: #f8f9fa;
-  border-bottom: none;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-}
 
-/* Acordeón */
-.programs-accordion .accordion-button {
-  padding: 1rem;
-  background: #f8f9fa;
-}
-
-.details-header {
-  background: #f8f9fa !important;
-  border-bottom: none;
-}

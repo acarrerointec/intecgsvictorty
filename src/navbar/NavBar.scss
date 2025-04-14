@@ -1,0 +1,120 @@
+
+.menu-container{
+  color: white;
+  position: absolute;
+  top: 7rem;
+  right: 3rem;
+  z-index: 2201;
+  background-color:#001122e6;
+  width:30rem;
+  height:fit-content;
+  border-radius: 8px;
+  min-height: 6rem;
+  overflow:hidden;
+  padding-bottom:1rem;
+  .menu-header{
+    font-weight: normal;
+    border-bottom:1px solid darkgrey;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 1rem;
+    padding-bottom: 1rem;
+    > img {
+      transform: rotate(45deg);
+      cursor: pointer;
+    }
+  }
+  .menu-option {
+    cursor: pointer;
+    height:5rem;
+    display: flex;
+    align-items: center;
+    padding-left: 1rem;
+    &:hover{
+      background-color:rgba(4, 52, 101, 0.8);
+    }
+    &.disabled {
+      cursor: not-allowed;
+      color: #686868;
+    }
+  }
+}
+
+.nav-bar__wrapper {
+  user-select        : none;
+  width              : 100%;
+  height             : 100%;
+  margin             : 0;
+  padding            : 0;
+  background-color   : #333; //#345;
+  //overflow           : hidden;
+  background-image   : url(../../images/ncs-logo2.png), url(../../images/bg002.png);
+  background-size    : auto 130%, auto 100%;
+  background-repeat  : no-repeat, no-repeat;
+  background-position: left calc(-8px), right top;
+
+  & .nav-bar__body {
+    display              : grid;
+    grid-template-columns: 150px auto minmax(0, 150px) minmax(0, 30px) minmax(0, 10px) minmax(0, 50px) minmax(0, 50px) minmax(0, 50px) min-content;
+    grid-template-rows   : minmax(5rem, auto);
+    column-gap           : 0px;
+    align-items          : center;
+    //overflow             : hidden;
+    background-repeat    : no-repeat;
+    position : relative;
+
+    & .nav-bar__item {
+      margin     : 0;
+      padding    : 0;
+      //overflow   : hidden;
+      display    : flex;
+      align-items: center;
+      &.withLogo{
+        display : flex;
+        justify-content: center;
+      }
+
+      & .nav-bar__place-holder {
+        display    : flex;
+        align-items: center;
+        height     : 100%;
+      }
+
+      & .nav-bar__item-logo {
+        padding-left : 1rem;
+        padding-right: 1rem;
+        display      : flex;
+        align-items  : center;
+        position: relative;
+        .nav-bar__version-code{
+          color: #dcdbdb;
+          font-size: 12px;
+          position: absolute;
+          bottom: -24px;
+          right: 16px; 
+        }
+      }
+
+      .nav-bar__titulo {
+        padding-left: .5rem;
+        display     : flex;
+        align-items : flex-end;
+      }
+
+      .nav-bar__item-img {
+        width : 3rem;
+        filter: invert(1);
+        cursor: pointer;
+      }
+
+      .nav-bar__item-img2 {
+        width : 3rem;
+        filter: invert(1);
+        cursor: pointer;
+      }
+
+      
+    }
+  }
+}

@@ -1,0 +1,155 @@
+$boton-face: #aaa;
+
+.comparador__wrapper {
+  width                : 100%;
+  padding-bottom       : 100px;
+  background           : none;
+  font-size            : 1.4rem;
+  display              : grid;
+  grid-template-columns: 3rem auto;
+  grid-template-rows   : 3rem auto 3rem;
+  grid-template-areas  :
+    'grilla-boton-menu comparador_header'
+    'comparador_horas comparador_body'
+  ;
+  background         : linear-gradient(#aaa, #333);
+  background-image   : url(.././../../images/logo.svg);
+  background-size    : 621.4rem;
+  background-position: -50rem -30rem;
+  background-repeat  : no-repeat;
+
+  .grilla-progra__boton-menu {
+    grid-area : grilla-boton-menu;
+    background: #333;
+  }
+
+  & .comparador_header {
+    grid-area            : comparador_header;
+    box-sizing           : border-box;
+    background           : #0f0;
+    /*rgba(200, 0, 0, .5);*/
+    gap                  : 0;
+    display              : grid;
+    color                : #ff0;
+    grid-template-columns: repeat(7, 1fr);
+    overflow             : hidden;
+    border-radius        : .3rem;
+    position             : static;
+    top                  : 0;
+
+    // box-shadow     : 0px 2px 2px 0px rgba(0, 0, 0, 0.7);
+    // justify-content: center;
+    // align-items    : center;
+  }
+
+  .comparador_body {
+    grid-area            : comparador_body;
+    display              : grid;
+    grid-template-columns: repeat(7, auto);
+
+    .comparador_column {
+      width: 100%;
+    }
+  }
+
+  .comparador_body__mobile {
+    @extend .comparador_body;
+    grid-template-columns: repeat(3, auto);
+  }
+
+  .comparador_horas {
+    grid-area            : comparador_horas;
+    box-sizing           : border-box;
+    background           : rgb(255, 163, 0);
+    gap                  : 0;
+    display              : grid;
+    color                : #333;
+    font-weight          : bold;
+    grid-template-rows   : repeat(24, 100px);
+    grid-template-columns: 3rem;
+    overflow             : visible;
+    position             : sticky;
+    left                 : 0;
+
+    box-shadow     : 0px 0px 4px 2px rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items    : top;
+    z-index        : 200;
+
+    margin : 0;
+    padding: 0;
+
+
+    .comparador__horas-item {
+      position       : relative;
+      border-top     : solid .1rem #333;
+      padding        : 0;
+      margin         : 0;
+      display        : flex;
+      justify-content: center;
+      align-items    : center;
+
+      &:nth-child(1) {
+        border-top: none;
+      }
+
+      .comparador__horas-texto {
+        width    : min-content;
+        height   : min-content;
+        font-size: 1.4rem;
+      }
+
+      .comparador__horas-linea {
+        position    : absolute;
+        left        : 0;
+        top         : 0%;
+        width       : 0;
+        height      : 100%;
+        border      : solid rgba(#fff, .3) .01rem;
+        border-left : none;
+        border-right: none;
+        z-index     : 1000;
+
+        &::before {
+          transition: opacity .5s;
+          content   : '';
+          left      : 0;
+          width     : 100%;
+          height    : 100%;
+          position  : absolute;
+          top       : 0;
+          box-shadow: 0 0 0 400rem rgba(#000, .4);
+          opacity   : 0;
+        }
+
+        &::after {
+          content         : '';
+          left            : 0;
+          width           : 100%;
+          height          : 0;
+          position        : absolute;
+          top             : 50%;
+          border-bottom   : dashed rgba(#fff, .3) .01rem;
+          background-color: rgba(#000, .3);
+          opacity         : 0;
+        }
+      }
+
+      &:hover {
+        .comparador__horas-linea {
+          width: 100vw;
+
+          &::before {
+            transition: opacity .5s;
+            opacity   : 1;
+          }
+
+          &::after {
+            opacity: 1;
+          }
+        }
+      }
+    }
+
+  }
+}
