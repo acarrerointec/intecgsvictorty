@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, InputGroup, Stack, Collapse
+  Button, Badge, Accordion, InputGroup, Stack, Collapse, Table
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -40,11 +40,11 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="tooltip-header">
         {isNetworkChart && <FiTv className="me-2" />}
         {isTimeSlotChart && <FiClock className="me-2" />}
-        
+
         {isNetworkChart ? dataItem.name :
-         isTimeSlotChart ? dataItem.hour :
-         isPieChart ? payload[0]?.name :
-         label}
+          isTimeSlotChart ? dataItem.hour :
+            isPieChart ? payload[0]?.name :
+              label}
       </div>
 
       <div className="tooltip-body">
@@ -78,7 +78,7 @@ const ProgramCard = ({ program, isDuplicate, networks }) => (
           <div>
             <Card.Title className="program-title">
               {program["Episode Title"]}
-              <Badge bg="white" className="ms-2">{program["Show Code"]}</Badge>
+              <Badge bg="dark" className="ms-2">{program["Show Code"]}</Badge>
               {isDuplicate && (
                 <Badge bg="danger" className="ms-2">
                   <FiCopy className="me-1" />
@@ -165,12 +165,15 @@ const ExecutiveDashboard = () => {
   const [showFilters, setShowFilters] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+
   const [filters, setFilters] = useState({
     feed: '',
     network: '',
     status: '',
     ltsa: '',
-    search: ''
+    search: '',
+    showCode: ''
   });
   const [tempDateRange, setTempDateRange] = useState([{
     startDate: new Date(),
@@ -195,7 +198,7 @@ const ExecutiveDashboard = () => {
     }
   }, []);
   const { filteredData, timeSlots, duplicates, networkDistribution } = useMemo(() => {
-
+    setIsFiltering(true);
     const processed = data
       .map(item => ({
         ...item,
@@ -210,18 +213,39 @@ const ExecutiveDashboard = () => {
     const rangeEnd = new Date(dateRange[0].endDate);
     rangeEnd.setHours(23, 59, 59, 999);
 
+
+
+    /*
+        const filtered = processed.filter(item => {
+          const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
+          const matchesSearch = item["Episode Title"]?.toLowerCase().includes(filters.search.toLowerCase()) ||
+            item["Show Code"]?.toLowerCase().includes(filters.search.toLowerCase());
+    
+          return matchesDate && matchesSearch &&
+            (!filters.feed || item.Feed === filters.feed) &&
+            (!filters.network || item.Network === filters.network) &&
+            (!filters.status || item.Status?.includes(filters.status)) &&
+            (!filters.ltsa || item.LTSA === filters.ltsa);
+        });
+    */
+
     const filtered = processed.filter(item => {
+      // Variables necesarias definidas
       const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
       const matchesSearch = item["Episode Title"]?.toLowerCase().includes(filters.search.toLowerCase()) ||
         item["Show Code"]?.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesNetwork = !filters.network || item.Network === filters.network;
+      const matchesShowCode = !filters.showCode || item["Show Code"] === filters.showCode;
 
-      return matchesDate && matchesSearch &&
+      // Combinación correcta de todas las condiciones
+      return matchesDate &&
+        matchesSearch &&
+        matchesNetwork &&
+        matchesShowCode &&
         (!filters.feed || item.Feed === filters.feed) &&
-        (!filters.network || item.Network === filters.network) &&
         (!filters.status || item.Status?.includes(filters.status)) &&
         (!filters.ltsa || item.LTSA === filters.ltsa);
     });
-
     const programMap = new Map();
     filtered.forEach(program => {
       const key = `${program["Show Code"]}-${program["Start Date"]}-${program["Start Time"]}`;
@@ -264,7 +288,7 @@ const ExecutiveDashboard = () => {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => b.count - a.count);
 
-
+    setIsFiltering(false);
     return {
       filteredData: filtered,
       timeSlots: slots,
@@ -343,7 +367,7 @@ const ExecutiveDashboard = () => {
               {showFilters ? (
                 <>
                   <FiEyeOff className="me-2" />
-                  Ocultar Filtros
+                  Filtros
                 </>
               ) : (
                 <>
@@ -398,7 +422,7 @@ const ExecutiveDashboard = () => {
                         onClick={handleApplyDate}
                         className="mt-2 w-90 apply-date-btn"
                       >
-                        <FiCheck className="me-2" /> Aplicar Fecha 
+                        <FiCheck className="me-2" /> Aplicar Fecha
                       </Button>
                     </div>
                   </FilterControl>
@@ -455,24 +479,17 @@ const ExecutiveDashboard = () => {
 
                     <Col md={9}>
                       <Row className="g-1  w-80  align-items-end">
-                        <Col xs={12} md={8} lg={9}>
-                          <FilterControl label="Buscar" icon={<FiSearch />}>
-                            <InputGroup className="search-input-group w-50">
-                              <Form.Control
-                                type="text"
-                                placeholder="Programa o código..."
-                                value={filters.search}
-                                onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                              />
-                              <Button
-                                variant="outline-secondary"
-                                onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
-                                disabled={!filters.search}
-                                className="clear-search-btn"
-                              >
-                                <FiX />
-                              </Button>
-                            </InputGroup>
+                        
+                  
+                        {/* Nuevo campo para show code */}
+                        <Col xs={12} sm={6} lg={4}>
+                          <FilterControl label="Código de Show" icon={<FiSearch />}>
+                            <Form.Control
+                              type="text"
+                              placeholder="Programa o código..."
+                              value={filters.showCode}
+                              onChange={e => setFilters(prev => ({ ...prev, showCode: e.target.value }))}
+                            />
                           </FilterControl>
                         </Col>
 
@@ -701,59 +718,143 @@ const ExecutiveDashboard = () => {
         </Col>
       </Row>
 
+{/* Nueva sección de tabla */}
+<Row className="g-4 mb-5">
+  <Col xl={12}>
+    <Card className="chart-card">
+      <Card.Header className="chart-header">
+        <Stack direction="horizontal" className="justify-content-between align-items-center">
+          <div>
+            <FiMonitor className="me-2" />
+            Tabla Resumen de Programas
+          </div>
+          <Badge bg="dark" pill>{filteredPrograms.length}</Badge>
+        </Stack>
+      </Card.Header>
+      <Card.Body>
+        <div className="table-responsive">
+          <Table striped bordered hover className="program-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Código</th>
+                <th>Red</th>
+                <th>Feed</th>
+                <th>Horario</th>
+                <th>Tipo</th>
+                <th>Plataforma</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPrograms.map((program) => (
+                <tr key={`${program["Show Code"]}-${program.Network}`}>
+                  <td className="text-nowrap">{program["Episode Title"]}</td>
+                  <td>
+                    <Badge bg="secondary">{program["Show Code"]}</Badge>
+                  </td>
+                  <td>{program.Network}</td>
+                  <td>{program.Feed}</td>
+                  <td>
+                    <FiClock className="me-1" />
+                    {program["Start time redondeo"]}
+                  </td>
+                  <td>
+                    <Badge pill bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
+                      {program.LTSA}
+                    </Badge>
+                  </td>
+                  <td>{program.EMISION}</td>
+                  <td>
+                    {program["Start Date"]
+                      ? new Date(program["Start Date"].split('-').reverse().join('-'))
+                          .toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+                      : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+        {!filteredPrograms.length && (
+          <div className="text-center py-4">
+            <FiXCircle className="display-6 text-muted mb-3" />
+            <p className="text-muted">No se encontraron programas con los filtros actuales</p>
+          </div>
+        )}
+      </Card.Body>
+    </Card>
+  </Col>
+</Row>
+
 
       <Accordion activeKey={showDetails ? 'details' : null}>
         <Card className="programs-accordion">
           <Accordion.Item eventKey="details">
             <Card.Header className="details-header">
-              <Stack direction="horizontal" className="justify-content-between w-100">
-                <Stack direction="horizontal" gap={3} className="align-items-center">
+              <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
+                {/* Header mejorado para mobile */}
+                <Stack direction="horizontal" gap={3} className="align-items-center mb-2 mb-md-0">
                   <h5 className="mb-0">Programación Detallada</h5>
-                  <Badge bg="dark" pill>{filteredPrograms.length}</Badge>
+                  <Badge bg="dark" pill className="fs-6">{filteredPrograms.length}</Badge>
                 </Stack>
-                <small className="text-muted">
-                  {dateRange[0]?.startDate && dateRange[0]?.endDate
-                    ? formatDateRange(dateRange[0].startDate, dateRange[0].endDate)
-                    : 'Seleccione fecha'}
+
+                <small className="text-muted text-nowrap">
+                  {dateRange[0]?.startDate ? (
+                    <>
+                      <FiCalendar className="me-1" />
+                      {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
+                    </>
+                  ) : 'Seleccione fecha'}
                 </small>
               </Stack>
             </Card.Header>
 
             <Accordion.Body>
-              {filteredPrograms.length > 0 ? (
-                <Row xs={1} md={2} lg={3} className="g-4">
-                  {filteredPrograms.map((program) => {
-                    const programKey = `${program["Show Code"]}-${program["Start Date"]}-${program["Start Time"]}`;
-                    const duplicateInfo = duplicates.get(programKey);
-                    const isDuplicate = duplicateInfo?.count > 1;
-                    const networks = Array.from(duplicateInfo?.networks || []);
+              {/* Estado de carga/filtros activos */}
+              {isFiltering && (
+                <div className="loading-overlay">
+                  <FiRefreshCw className="spinning-icon" />
+                </div>
+              )}
 
-                    // Corregir formato de fecha
-                    const startDate = new Date(program["Start Date"].split('-').reverse().join('-'));
-                    const isValidDate = !isNaN(startDate.getTime());
+              {/* Listado de programas */}
+              <Row xs={1} md={2} lg={3} className="g-4">
+                {filteredPrograms.map((program) => {
+                  const programKey = `${program["Show Code"]}-${program["Start Date"]}-${program["Start Time"]}`;
+                  const duplicateInfo = duplicates.get(programKey);
 
-                    return isValidDate && (
-                      <Col key={`${programKey}-${program.Network}-${program.Feed}`}>
-                        <ProgramCard
-                          program={program}
-                          isDuplicate={isDuplicate}
-                          networks={networks}
-                        />
-                      </Col>
-                    );
-                  })}
-                </Row>
-              ) : (
-                <div className="text-center py-5">
-                  <FiXCircle className="display-4 text-muted mb-3" />
-                  <h5>No se encontraron programas</h5>
-                  <p className="text-muted">Intenta ajustando los filtros de búsqueda</p>
+                  return (
+                    <Col key={`${programKey}-${program.Network}-${program.Feed}`}>
+                      <ProgramCard
+                        program={program}
+                        isDuplicate={duplicateInfo?.count > 1}
+                        networks={Array.from(duplicateInfo?.networks || [])}
+                      />
+                    </Col>
+                  );
+                })}
+              </Row>
+
+              {/* Estado vacío mejorado */}
+              {!filteredPrograms.length && (
+                <div className="empty-state">
+                  <FiXCircle className="empty-icon" />
+                  <h5>No hay resultados</h5>
+                  <p className="text-muted">
+                    {filters.network ? `Red ${filters.network}` : ''}
+                    {filters.search ? `Código: ${filters.search}` : ''}
+                    {!filters.search && !filters.network && 'Ajusta los filtros de búsqueda'}
+                  </p>
                 </div>
               )}
             </Accordion.Body>
           </Accordion.Item>
         </Card>
       </Accordion>
+
+
+
     </Container>
   );
 };
