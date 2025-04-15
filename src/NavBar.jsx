@@ -47,7 +47,7 @@ const NavBar = () => {
           <div className="mx-3">
             <a className="nav-link active d-flex flex-column align-items-center" href="#" style={{ color: '#FFFFFF' }}>
               <FaHome className="mb-1" />
-              <span style={{ fontSize: '0.75rem' }}>Home</span>
+              <span style={{ fontSize: '0.75rem' }}></span>
             </a>
           </div>
 
@@ -91,24 +91,6 @@ const NavBar = () => {
                 border: '1px solid #3D3D3D'
               }}
             >
-              <li>
-                <a className="dropdown-item" href="#" style={{ color: '#FFFFFF' }}>
-                  Profile
-                </a>
-              </li>
-              <li>
-                <a className="dropdown-item" href="#" style={{ color: '#FFFFFF' }}>
-                  Settings
-                </a>
-              </li>
-              <li>
-                <hr className="dropdown-divider" style={{ borderColor: '#3D3D3D' }} />
-              </li>
-              <li>
-                <a className="dropdown-item" href="#" style={{ color: '#FFFFFF' }}>
-                  Logout
-                </a>
-              </li>
             </ul>
           </div>
         </div>

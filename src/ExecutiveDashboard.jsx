@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, InputGroup, Stack, Collapse, Table
+  Button, Badge, Accordion, InputGroup, Stack, Collapse, Table, Tabs, Tab
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -658,17 +658,23 @@ const ExecutiveDashboard = () => {
         </Col>
       </Row>
 
-      <Row className="g-4 mb-5">
-        <Col xl={12}>
-          <Card className="chart-card">
-            <Card.Header className="chart-header">
-              <FiBarChart2 className="me-2" />
-              Distribución por Redes (Network)
-            </Card.Header>
-            <Card.Body>
-              <div style={{ height: '400px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
+
+<Row className="g-4 mb-5">
+  <Col xl={12}>
+    <Card className="chart-card">
+      <Tabs defaultActiveKey="grafico" className="mb-3">
+        {/* Pestaña del Gráfico */}
+        <Tab eventKey="grafico" title={
+          <span><FiBarChart2 className="me-1" />Gráfico</span>
+        }>
+          <Card.Header className="chart-header">
+            Distribución por Redes (Network)
+          </Card.Header>
+          <Card.Body>
+            <div style={{ height: '400px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                {/* ... (tu código original del gráfico aquí) ... */}
+                <BarChart
                     layout="vertical"
                     data={networkDistribution}
                     margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
@@ -704,36 +710,30 @@ const ExecutiveDashboard = () => {
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card.Body>
-            <Card.Footer className="text-muted">
-              <small>
-                {filters.network
-                  ? `Mostrando resultados para la red ${filters.network}`
-                  : 'Distribución de programas por red televisiva'}
-              </small>
-            </Card.Footer>
-          </Card>
-        </Col>
-      </Row>
+              
+              </ResponsiveContainer>
+            </div>
+          </Card.Body>
+          <Card.Footer className="text-muted">
+            <small>
+              {filters.network
+                ? `Mostrando resultados para la red ${filters.network}`
+                : 'Distribución de programas por red televisiva'}
+            </small>
+          </Card.Footer>
+        </Tab>
 
-{/* Nueva sección de tabla */}
-<Row className="g-4 mb-5">
-  <Col xl={12}>
-    <Card className="chart-card">
-      <Card.Header className="chart-header">
-        <Stack direction="horizontal" className="justify-content-between align-items-center">
-          <div>
-            <FiMonitor className="me-2" />
+        {/* Pestaña de la Tabla */}
+        <Tab eventKey="tabla" title={
+          <span><FiMonitor className="me-1" />Tabla <Badge bg="dark" pill>{filteredPrograms.length}</Badge></span>
+        }>
+          <Card.Header className="chart-header">
             Tabla Resumen de Programas
-          </div>
-          <Badge bg="dark" pill>{filteredPrograms.length}</Badge>
-        </Stack>
-      </Card.Header>
-      <Card.Body>
-        <div className="table-responsive">
-          <Table striped bordered hover className="program-table">
+          </Card.Header>
+          <Card.Body>
+            <div className="table-responsive">
+              {/* ... (tu código original de la tabla aquí) ... */}
+              <Table striped bordered hover className="program-table">
             <thead>
               <tr>
                 <th>Título</th>
@@ -775,18 +775,20 @@ const ExecutiveDashboard = () => {
               ))}
             </tbody>
           </Table>
-        </div>
-        {!filteredPrograms.length && (
-          <div className="text-center py-4">
-            <FiXCircle className="display-6 text-muted mb-3" />
-            <p className="text-muted">No se encontraron programas con los filtros actuales</p>
-          </div>
-        )}
-      </Card.Body>
+            </div>
+            {/* Mensaje cuando no hay resultados */}
+            {!filteredPrograms.length && (
+              <div className="text-center py-4">
+                <FiXCircle className="display-6 text-muted mb-3" />
+                <p className="text-muted">No se encontraron programas con los filtros actuales</p>
+              </div>
+            )}
+          </Card.Body>
+        </Tab>
+      </Tabs>
     </Card>
   </Col>
 </Row>
-
 
       <Accordion activeKey={showDetails ? 'details' : null}>
         <Card className="programs-accordion">
