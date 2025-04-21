@@ -1,44 +1,73 @@
+/* General Styles */
 .executive-dashboard {
-  padding: 2rem;
-  background-color: #f0f0f0; /* Cambiado a gris más notable */
+  font-family: 'Arial', sans-serif;
+  background-color: #f8f9fa;
+  padding: 1.5rem;
   min-height: 100vh;
 }
-/* Consolidado de estilos de tarjetas de programa */
-.program-card {
-  transition: all 0.2s ease;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  background: white;
-  
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-  }
-  
-  &.duplicate-program {
-    border-left: 4px solid #f4eeef;
-    background-color: #fff5f5;
-    
-    &::after {
 
-      content: "Emitido en múltiples redes";
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: 0.75rem;
-      color: #f10a0a;
-      font-weight: 500;
-    }
-  }
+/* Header */
+.dashboard-header {
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
 }
+
+.dashboard-header h3 {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #495057;
+}
+
+.date-display {
+  font-size: 0.95rem;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+}
+
+/* Filter Section */
+.main-filters {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+}
+
+.filter-control {
+  margin-bottom: 1rem;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.filter-label svg {
+  margin-right: 5px;
+}
+
+.apply-date-btn,
+.clear-all-btn {
+  width: 100%;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+}
+
+/* Metrics Section */
 
 /* Métricas unificadas */
 .metric-card {
   border: none;
   border-radius: 12px;
-  color: white;
+  color: rgb(247, 243, 243);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   transition: transform 0.2s;
   
@@ -52,165 +81,250 @@
   &.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
   &.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
 }
-
-/* Header unificado */
-.dashboard-header {
-  padding: 1.5rem;
-  background: white;
+.metrics-grid .metric-card {
+  border: none;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 2rem;
-  
-  .date-display {
-    font-size: 0.95rem;
-    color: #6c757d;
-    display: flex;
-    align-items: center;
-  }
+  background-color: #f8f0f0;
+  box-shadow: 0 2px 8px rgba(246, 244, 244, 0.1);
+  transition: transform 0.2s ease;
 }
 
-/* Tooltip consolidado */
-.custom-tooltip {
-  background: white;
-  padding: 1rem;
+.metrics-grid .metric-card:hover {
+  transform: translateY(-3px);
+}
+
+.metric-card .metric-icon {
+  font-size: 24px;
+  color: #040404;
+}
+
+.metric-card .metric-value {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.metric-card .metric-label {
+  font-size: 14px;
+  color: #f2f6f6;
+}
+
+/* Chart Section */
+.chart-card {
+  border: none;
+  border-radius: 8px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-header {
+  font-size: 16px;
+  font-weight: bold;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+  padding: 10px 15px;
+}
+
+.chart-card .recharts-wrapper {
+  margin: 0 auto;
+}
+
+/* Table Section */
+.table-responsive {
+  max-height: 400px;
+  overflow-y: auto;
   border: 1px solid #dee2e6;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  
-  .tooltip-header {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #212529;
-  }
-  
-  .tooltip-body {
-    font-size: 0.8rem;
-    color: #6c757d;
-  }
 }
 
-/* Media queries unificadas */
-@media (max-width: 768px) {
-  .executive-dashboard {
-    padding: 1rem;
-  }
-  
-  .dashboard-header {
-    padding: 1rem;
-    
-    h3 {
-      font-size: 1.5rem;
-    }
-  }
-  
-  .responsive-datepicker {
-    width: 300px;
-  }
-  
-  .apply-date-btn {
-    font-size: 0.9rem;
-    padding: 8px 12px;
-  }
+.program-table {
+  font-size: 14px;
+  color: #495057;
 }
 
+.program-table th {
+  background-color: #2E86AB;
+  color: white;
+  font-weight: 600;
+  text-align: center;
+}
 
-/* tarjetas de programas */
+.program-table td {
+  text-align: center;
+  vertical-align: middle;
+}
 
-/* Estado de carga */
+.program-table .text-nowrap {
+  white-space: nowrap;
+}
+
+/* Program Cards */
+.program-card {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.program-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.program-card .program-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #495057;
+}
+
+.program-card .program-meta {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.program-card .program-details .detail-item {
+  font-size: 12px;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+}
+
+.program-card .program-details .detail-item svg {
+  margin-right: 5px;
+}
+
+.program-card .program-footer {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.program-card.duplicate-program {
+  border-left: 4px solid #f4eeef;
+  background-color: #fff5f5;
+}
+
+.program-card.duplicate-program::after {
+  content: "Emitido en múltiples redes";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.75rem;
+  color: #f10a0a;
+  font-weight: 500;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.empty-state .empty-icon {
+  font-size: 4rem;
+  color: #dee2e6;
+  margin-bottom: 1rem;
+}
+
+/* Tooltip */
+.custom-tooltip {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  color: #495057;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.custom-tooltip .tooltip-header {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.custom-tooltip .tooltip-body div {
+  margin-bottom: 5px;
+}
+
+/* Accordion */
+.programs-accordion {
+  border: none;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.details-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 10px 15px;
+}
+
+.details-header h5 {
+  font-size: 16px;
+  font-weight: bold;
+  color: #495057;
+}
+
+.details-header .text-muted {
+  font-size: 12px;
+}
+
+/* Loading Overlay */
 .loading-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255,255,255,0.8);
+  background-color: rgba(255, 255, 255, 0.8);
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 10;
+  align-items: center;
 }
 
-.spinning-icon {
+.loading-overlay .spinning-icon {
+  font-size: 24px;
+  color: #6c757d;
   animation: spin 1s linear infinite;
-  font-size: 2.5rem;
-  color: #2E86AB;
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Estado vacío */
-.empty-state {
-  text-align: center;
-  padding: 4rem 1rem;
-  opacity: 0.7;
-  transition: opacity 0.3s ease;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1.5rem;
-  color: #dee2e6;
-}
-
-/* Responsive header */
+/* Media Queries */
 @media (max-width: 768px) {
-  .details-header {
-    padding: 1rem !important;
-    
-    h5 {
-      font-size: 1.1rem;
-    }
-    
-    .text-muted {
-      font-size: 0.8rem;
-    }
+  .executive-dashboard {
+    padding: 1rem;
   }
-}
 
-/* Transición suave para cards */
-.programs-accordion .row {
-  transition: opacity 0.3s ease;
-}
-
-.filter-active .program-card {
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
-}
-
-.filter-active .program-card:hover {
-  opacity: 1;
-}
-
-
-/* verificar */
-/* Estilos para la tabla */
-.program-table {
-  --bs-table-bg: transparent;
-  margin: 0;
-  
-  th {
-    background: #2E86AB;
-    color: white;
-    font-weight: 500;
-    vertical-align: middle;
+  .dashboard-header {
+    padding: 1rem;
   }
-  
-  td {
-    vertical-align: middle;
-    padding: 0.75rem;
-  }
-  
-  tr:hover td {
-    background-color: #f8f9fa;
-  }
-}
 
-.table-responsive {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #dee2e6;
+  .dashboard-header h3 {
+    font-size: 1.5rem;
+  }
+
+  .responsive-datepicker {
+    width: 100%;
+  }
+
+  .apply-date-btn {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+
+  .details-header h5 {
+    font-size: 1.1rem;
+  }
+
+  .details-header .text-muted {
+    font-size: 0.8rem;
+  }
 }

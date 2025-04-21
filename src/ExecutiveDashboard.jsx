@@ -1,9 +1,19 @@
+/**
+ * COMPONENTE: ExecutiveDashboard
+ * DESCRIPCIÓN: Dashboard ejecutivo para análisis de programación televisiva
+ * FUNCIONALIDADES PRINCIPALES:
+ * - Visualización de métricas clave
+ * - Filtrado avanzado por fecha, red, tipo de programa, etc.
+ * - Gráficos interactivos de distribución horaria y por redes
+ * - Tabla resumen y vista detallada de programas
+ * - Detección de programas duplicados
+ */
 
 import { useState, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, InputGroup, Stack, Collapse, Table, Tabs, Tab
+  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -14,7 +24,7 @@ import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
   FiTv, FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiChevronUp, FiChevronDown, FiXCircle
+  FiXCircle
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -23,13 +33,97 @@ import es from 'date-fns/locale/es';
 import data from './data/csvjson.json';
 import './ExecutiveDashboard.css';
 
+/**
+ * Convierte una fecha en formato `DD-MM-YYYY` a un objeto `Date`.
+ * Si la conversión falla, devuelve la fecha actual.
+ * @param {string} dateString - Fecha en formato `DD-MM-YYYY`.
+ * @returns {Date} - Objeto `Date` correspondiente o la fecha actual si ocurre un error.
+ */
+const processDate = (dateString) => {
+  try {
+    const [day, month, year] = dateString.split('-');
+    return new Date(`${year}-${month}-${day}`);
+  } catch (error) {
+    console.error('Error procesando fecha:', dateString);
+    return new Date();
+  }
+};
 
+/**
+ * Filtra los datos según los filtros aplicados y el rango de fechas.
+ * @param {Array} data - Lista de programas a filtrar.
+ * @param {Object} filters - Filtros aplicados (feed, network, status, ltsa, search, showCode).
+ * @param {Date} rangeStart - Fecha de inicio del rango.
+ * @param {Date} rangeEnd - Fecha de fin del rango.
+ * @returns {Array} - Lista de programas filtrados.
+ */
+const filterData = (data, filters, rangeStart, rangeEnd) => {
+  return data.filter(item => {
+    const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
 
+    const matchesSearch = filters.search
+      ? searchMatches(item, filters.search)
+      : true;
 
+    const matchesNetwork = filters.network
+      ? item.Network?.toString() === filters.network
+      : true;
+
+    const matchesShowCode = filters.showCode
+      ? item["Show Code"]?.toString().toLowerCase() === filters.showCode.toLowerCase()
+      : true;
+
+    const matchesFeed = filters.feed
+      ? item.Feed?.toString() === filters.feed
+      : true;
+
+    const matchesStatus = filters.status
+      ? item.Status?.includes(filters.status)
+      : true;
+
+    const matchesLTSA = filters.ltsa
+      ? item.LTSA?.toString() === filters.ltsa
+      : true;
+
+    return (
+      matchesDate &&
+      matchesSearch &&
+      matchesNetwork &&
+      matchesShowCode &&
+      matchesFeed &&
+      matchesStatus &&
+      matchesLTSA
+    );
+  });
+};
+
+/**
+ * Verifica si un programa coincide con un término de búsqueda.
+ * @param {Object} program - Programa a verificar.
+ * @param {string} searchTerm - Término de búsqueda.
+ * @returns {boolean} - Verdadero si el programa coincide con el término de búsqueda.
+ */
+const searchMatches = (program, searchTerm) => {
+  if (!searchTerm) return true;
+  const lowerSearchTerm = searchTerm.toLowerCase();
+  return (
+    program["Episode Title"]?.toLowerCase().includes(lowerSearchTerm) ||
+    program["Show Code"]?.toLowerCase().includes(lowerSearchTerm) ||
+    program.Network?.toLowerCase().includes(lowerSearchTerm) ||
+    program.Feed?.toLowerCase().includes(lowerSearchTerm)
+  );
+};
+
+/**
+ * Componente personalizado para mostrar información en los tooltips de los gráficos.
+ * @param {boolean} active - Indica si el tooltip está activo.
+ * @param {Array} payload - Datos del tooltip.
+ * @param {string} label - Etiqueta del tooltip.
+ * @returns {JSX.Element|null} - Contenido del tooltip o `null` si no está activo.
+ */
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
 
-  // Determinar el tipo de gráfico basado en la estructura de datos
   const dataItem = payload[0]?.payload || {};
   const isNetworkChart = 'name' in dataItem && 'count' in dataItem;
   const isTimeSlotChart = 'hour' in dataItem;
@@ -40,26 +134,22 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="tooltip-header">
         {isNetworkChart && <FiTv className="me-2" />}
         {isTimeSlotChart && <FiClock className="me-2" />}
-
         {isNetworkChart ? dataItem.name :
           isTimeSlotChart ? dataItem.hour :
             isPieChart ? payload[0]?.name :
               label}
       </div>
-
       <div className="tooltip-body">
         {isNetworkChart && (
           <div style={{ color: payload[0].color }}>
             Programas: <strong>{dataItem.count}</strong>
           </div>
         )}
-
         {isTimeSlotChart && payload.map((entry, index) => (
           <div key={index} style={{ color: entry.color }}>
             {entry.name}: <strong>{entry.value}</strong>
           </div>
         ))}
-
         {isPieChart && (
           <div style={{ color: payload[0].color }}>
             {payload[0]?.name}: <strong>{payload[0]?.value}</strong>
@@ -70,8 +160,15 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+/**
+ * Componente para mostrar información detallada de un programa.
+ * @param {Object} program - Datos del programa.
+ * @param {boolean} isDuplicate - Indica si el programa está duplicado.
+ * @param {Array} networks - Lista de redes asociadas al programa.
+ * @returns {JSX.Element} - Tarjeta con la información del programa.
+ */
 const ProgramCard = ({ program, isDuplicate, networks }) => (
-  <Card className={`program-card h-100  ${isDuplicate ? 'duplicate-program' : ''}`}>
+  <Card className={`program-card h-100 ${isDuplicate ? 'duplicate-program' : ''}`}>
     <Card.Body>
       <Stack gap={2}>
         <div className="d-flex justify-content-between align-items-start">
@@ -97,7 +194,6 @@ const ProgramCard = ({ program, isDuplicate, networks }) => (
             {program.LTSA}
           </Badge>
         </div>
-
         <div className="program-details">
           <Stack direction="horizontal" gap={2} className="flex-wrap">
             <div className="detail-item">
@@ -114,7 +210,6 @@ const ProgramCard = ({ program, isDuplicate, networks }) => (
             </div>
           </Stack>
         </div>
-
         <div className="program-footer">
           <Stack direction="horizontal" className="justify-content-between">
             <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
@@ -146,6 +241,13 @@ ProgramCard.defaultProps = {
   networks: []
 };
 
+/**
+ * Componente para mostrar un control de filtro con etiqueta e ícono.
+ * @param {string} label - Etiqueta del filtro.
+ * @param {JSX.Element} icon - Ícono del filtro.
+ * @param {JSX.Element} children - Contenido del filtro.
+ * @returns {JSX.Element} - Control de filtro.
+ */
 const FilterControl = ({ label, icon, children }) => (
   <div className="filter-control">
     <div className="filter-label">
@@ -188,15 +290,6 @@ const ExecutiveDashboard = () => {
 
   const toggleFilters = () => setShowFilters(!showFilters);
 
-  const processDate = useCallback((dateString) => {
-    try {
-      const [day, month, year] = dateString.split('-');
-      return new Date(`${year}-${month}-${day}`);
-    } catch (error) {
-      console.error('Error procesando fecha:', dateString);
-      return new Date();
-    }
-  }, []);
   const { filteredData, timeSlots, duplicates, networkDistribution } = useMemo(() => {
     setIsFiltering(true);
     const processed = data
@@ -205,47 +298,15 @@ const ExecutiveDashboard = () => {
         start: processDate(item["Start Date"]),
         end: processDate(item["End Date"])
       }))
-      .filter(item => !isNaN(item.start.getTime()))
-      .filter(item => !isNaN(item.end.getTime()));
+      .filter(item => !isNaN(item.start.getTime()) && !isNaN(item.end.getTime()));
 
     const rangeStart = new Date(dateRange[0].startDate);
     rangeStart.setHours(0, 0, 0, 0);
     const rangeEnd = new Date(dateRange[0].endDate);
     rangeEnd.setHours(23, 59, 59, 999);
 
+    const filtered = filterData(processed, filters, rangeStart, rangeEnd);
 
-
-    /*
-        const filtered = processed.filter(item => {
-          const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
-          const matchesSearch = item["Episode Title"]?.toLowerCase().includes(filters.search.toLowerCase()) ||
-            item["Show Code"]?.toLowerCase().includes(filters.search.toLowerCase());
-    
-          return matchesDate && matchesSearch &&
-            (!filters.feed || item.Feed === filters.feed) &&
-            (!filters.network || item.Network === filters.network) &&
-            (!filters.status || item.Status?.includes(filters.status)) &&
-            (!filters.ltsa || item.LTSA === filters.ltsa);
-        });
-    */
-
-    const filtered = processed.filter(item => {
-      // Variables necesarias definidas
-      const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
-      const matchesSearch = item["Episode Title"]?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        item["Show Code"]?.toLowerCase().includes(filters.search.toLowerCase());
-      const matchesNetwork = !filters.network || item.Network === filters.network;
-      const matchesShowCode = !filters.showCode || item["Show Code"] === filters.showCode;
-
-      // Combinación correcta de todas las condiciones
-      return matchesDate &&
-        matchesSearch &&
-        matchesNetwork &&
-        matchesShowCode &&
-        (!filters.feed || item.Feed === filters.feed) &&
-        (!filters.status || item.Status?.includes(filters.status)) &&
-        (!filters.ltsa || item.LTSA === filters.ltsa);
-    });
     const programMap = new Map();
     filtered.forEach(program => {
       const key = `${program["Show Code"]}-${program["Start Date"]}-${program["Start Time"]}`;
@@ -274,14 +335,13 @@ const ExecutiveDashboard = () => {
         slots[slotIndex][type]++;
       }
     });
-    //grafico nuevo 
+
     const networkData = filtered.reduce((acc, program) => {
       const network = program.Network;
       acc[network] = (acc[network] || 0) + 1;
       return acc;
     }, {});
 
-    // Si hay un filtro de red aplicado, mantener solo esa red
     const networkDistribution = filters.network
       ? [{ name: filters.network, count: filtered.length }]
       : Object.entries(networkData)
@@ -295,7 +355,7 @@ const ExecutiveDashboard = () => {
       duplicates: programMap,
       networkDistribution
     };
-  }, [data, dateRange, filters, processDate]);
+  }, [data, dateRange, filters]);
 
   const metrics = useMemo(() => ({
     total: filteredData.length,
@@ -306,22 +366,6 @@ const ExecutiveDashboard = () => {
     linear: filteredData.filter(d => d.EMISION === 'LINEAL').length,
     duplicates: Array.from(duplicates.values()).filter(v => v.count > 1).length
   }), [filteredData, duplicates]);
-
-  const formatDateRange = useCallback((start, end) => {
-    try {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      if (isNaN(startDate) || isNaN(endDate)) return 'Fecha inválida';
-
-      const options = { day: '2-digit', month: 'short' };
-      return startDate.toLocaleDateString('es-ES', options) +
-        (startDate.getTime() === endDate.getTime()
-          ? ` ${startDate.getFullYear()}`
-          : ` - ${endDate.toLocaleDateString('es-ES', options)} ${endDate.getFullYear()}`);
-    } catch {
-      return 'Fecha inválida';
-    }
-  }, []);
 
   const handleBarClick = useCallback((data, index) => {
     if (!timeSlots || index === undefined) return;
@@ -342,13 +386,35 @@ const ExecutiveDashboard = () => {
     setDateRange([...tempDateRange]);
   };
 
+  /**
+   * Formatea un rango de fechas para mostrarlo en el encabezado.
+   * @param {Date} start - Fecha de inicio.
+   * @param {Date} end - Fecha de fin.
+   * @returns {string} - Rango de fechas formateado.
+   */
+  const formatDateRange = useCallback((start, end) => {
+    try {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (isNaN(startDate) || isNaN(endDate)) return 'Fecha inválida';
+
+      const options = { day: '2-digit', month: 'short' };
+      return startDate.toLocaleDateString('es-ES', options) +
+        (startDate.getTime() === endDate.getTime()
+          ? ` ${startDate.getFullYear()}`
+          : ` - ${endDate.toLocaleDateString('es-ES', options)} ${endDate.getFullYear()}`);
+    } catch {
+      return 'Fecha inválida';
+    }
+  }, []);
+
   return (
     <Container fluid className="executive-dashboard">
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
             <div>
-              <h3 className="mb-1">Graphic Report Program </h3>
+              <h3 className="mb-1">Graphic Report Program</h3>
               <div className="date-display">
                 <FiCalendar className="me-3" />
                 {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
