@@ -1,4 +1,4 @@
-import { FaSearch, FaHome, FaBell, FaUserCircle } from "react-icons/fa";
+import { FaSearch, FaHome } from "react-icons/fa";
 
 
 const NavBar = () => {
@@ -44,26 +44,16 @@ const NavBar = () => {
           </div>
 
           {/* Home - Movido aquí desde notificaciones */}
-          <div className="mx-3">
+          <div className="mx-8">
             <a className="nav-link active d-flex flex-column align-items-center" href="#" style={{ color: '#FFFFFF' }}>
               <FaHome className="mb-1" />
-              <span style={{ fontSize: '0.75rem' }}></span>
+              <span style={{ fontSize: '0.8rem' }}></span>
             </a>
           </div>
 
           {/* Notificaciones */}
           <div className="position-relative me-3">
-            <FaBell className="text-white fs-5" />
-            <span 
-              className="position-absolute top-0 start-100 translate-middle badge rounded-pill" 
-              style={{ 
-                backgroundColor: '#3A86FF',
-                fontSize: '0.5rem',
-                padding: '0.25rem 0.35rem'
-              }}
-            >
-              3
-            </span>
+       
           </div>
 
           {/* Usuario */}
@@ -80,7 +70,7 @@ const NavBar = () => {
                 backgroundColor: 'transparent'
               }}
             >
-              <FaUserCircle className="text-white me-2 fs-4" />
+          
               <span>Admin</span>
             </button>
             <ul

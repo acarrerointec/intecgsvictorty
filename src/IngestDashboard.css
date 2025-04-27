@@ -1,0 +1,164 @@
+/* General Styles */
+.ingest-dashboard {
+    font-family: 'Roboto', sans-serif; /* Cambiado a una fuente más moderna */
+    background-color: #f4f5f7; /* Color más suave */
+    padding: 2rem; /* Más espacio */
+    min-height: 100vh;
+    color: #333; /* Mejor contraste */
+}
+
+/* Header */
+.dashboard-header {
+    padding: 2rem; /* Más espacio */
+    background: #ffffff;
+    border-radius: 12px; /* Bordes más redondeados */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra más pronunciada */
+    margin-bottom: 2rem;
+}
+
+.dashboard-header h3 {
+    font-size: 2rem; /* Tamaño más grande */
+    font-weight: 700; /* Más énfasis */
+    color: #343a40; /* Color más oscuro */
+}
+
+.date-display {
+    font-size: 1rem; /* Tamaño más legible */
+    color: #868e96; /* Color más claro */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Espaciado entre elementos */
+}
+
+/* Filter Section */
+.main-filters {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 12px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+.filter-control {
+    margin-bottom: 1.5rem; /* Más espacio entre controles */
+}
+
+.filter-label {
+    font-size: 15px; /* Tamaño más grande */
+    font-weight: 600; /* Más énfasis */
+    color: #495057;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Espaciado entre ícono y texto */
+}
+
+.apply-date-btn,
+.clear-all-btn {
+    width: 100%;
+    font-size: 1rem; /* Tamaño más legible */
+    padding: 0.75rem; /* Más espacio */
+    border-radius: 8px; /* Bordes redondeados */
+    transition: background-color 0.3s ease; /* Transición suave */
+}
+
+.apply-date-btn:hover {
+    background-color: #2E86AB; /* Color de hover */
+    color: #fff;
+}
+
+.clear-all-btn:hover {
+    background-color: #dc3545; /* Color de hover */
+    color: #fff;
+}
+
+/* Metrics Section */
+.metric-card {
+    border: none;
+    border-radius: 16px; /* Bordes más redondeados */
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-5px); /* Más movimiento */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15); /* Sombra más pronunciada */
+}
+
+.metric-card .metric-icon {
+    font-size: 28px; /* Tamaño más grande */
+    color: #fff;
+}
+
+.metric-card .metric-value {
+    font-size: 24px; /* Tamaño más grande */
+    font-weight: 700; /* Más énfasis */
+}
+
+.metric-card .metric-label {
+    font-size: 16px; /* Tamaño más grande */
+    color: #e9ecef; /* Color más claro */
+}
+
+/* Chart Section */
+.chart-card {
+    border: none;
+    border-radius: 12px;
+    background-color: #ffffff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-header {
+    font-size: 18px; /* Tamaño más grande */
+    font-weight: 700; /* Más énfasis */
+    color: #343a40;
+    border-bottom: 1px solid #dee2e6;
+    padding: 15px 20px;
+}
+
+
+/* Métricas unificadas */
+.metric-card {
+    border: none;
+    border-radius: 12px;
+    color: rgb(247, 243, 243);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+    
+    &:hover {
+      transform: translateY(-3px);
+    }
+    
+    &.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
+    &.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+    &.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
+    &.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
+    &.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
+  }
+  .metrics-grid .metric-card {
+    border: none;
+    border-radius: 8px;
+    background-color: #f8f0f0;
+    box-shadow: 0 2px 8px rgba(246, 244, 244, 0.1);
+    transition: transform 0.2s ease;
+  }
+  
+  .metrics-grid .metric-card:hover {
+    transform: translateY(-3px);
+  }
+  
+  .metric-card .metric-icon {
+    font-size: 24px;
+    color: #040404;
+  }
+  
+  .metric-card .metric-value {
+    font-size: 20px;
+    font-weight: bold;
+  }
+  
+  .metric-card .metric-label {
+    font-size: 14px;
+    color: #f2f6f6;
+  }
