@@ -24,7 +24,7 @@ const Sidebar = () => {
         onClick={() => setIsSidebarVisible(!isSidebarVisible)} 
         className="btn btn-dark position-absolute" 
         style={{
-          top: '10%', // Cambiado para posicionarlo más abajo (en el centro vertical)
+          top: '5%', // Cambiado para posicionarlo más abajo (en el centro vertical)
           transform: 'translateY(2%)', // Centrado verticalmente
           left: isSidebarVisible ? '160px' : '20px',
           zIndex: 10000,

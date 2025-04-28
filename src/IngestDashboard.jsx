@@ -1,13 +1,3 @@
-/**
- * COMPONENTE: IngestDashboard
- * DESCRIPCIÓN: Dashboard para análisis de ingestión de contenido
- * FUNCIONALIDADES PRINCIPALES:
- * - Visualización de métricas clave
- * - Filtrado avanzado por fecha, tipo, estado, etc.
- * - Gráficos interactivos de distribución por tipo y estado
- * - Tabla resumen y vista detallada de contenido
- */
-
 import { useState, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -23,7 +13,7 @@ import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
   FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiXCircle, FiTv
+  FiXCircle, FiTv, FiList
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -39,6 +29,8 @@ import './IngestDashboard.css'; // Asegúrate de que este archivo contenga los e
  * @returns {Date} - Objeto `Date` correspondiente o la fecha actual si ocurre un error.
  */
 const processDate = (dateString) => {
+  if (!dateString) return new Date();
+  
   try {
     const [datePart, timePart] = dateString.split(' ');
     const [day, month, year] = datePart.split('/');
@@ -47,6 +39,42 @@ const processDate = (dateString) => {
     console.error('Error procesando fecha:', dateString);
     return new Date();
   }
+};
+
+/**
+ * Identifica tapes que no son producto de grabaciones en vivo
+ * @param {Array} filteredData - Datos filtrados según criterios de búsqueda
+ * @returns {Object} - Datos procesados para tapes originales y lista completa de tapes
+ */
+const processTapeData = (filteredData) => {
+  // Extraer códigos de eventos en vivo
+  const liveCodes = filteredData
+    .filter(item => item.Type === 'Program - Live')
+    .map(item => item.Code);
+  
+  // Filtrar tapes que no tengan un código correspondiente en vivo
+  const originalTapes = filteredData.filter(item => 
+    item.Type?.includes('Program - Tape') && 
+    !liveCodes.includes(item.Code)
+  );
+
+  // Agrupar por fecha
+  const grouped = originalTapes.reduce((acc, item) => {
+    if (!item.Date) return acc;
+    
+    const date = processDate(item.Date).toLocaleDateString('es-ES');
+    acc[date] = (acc[date] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Formatear para gráfico
+  return {
+    chartData: Object.entries(grouped).map(([date, count]) => ({
+      date,
+      count
+    })),
+    tapesList: originalTapes
+  };
 };
 
 /**
@@ -59,15 +87,16 @@ const processDate = (dateString) => {
  */
 const filterData = (data, filters, rangeStart, rangeEnd) => {
   return data.filter(item => {
-    const matchesDate = item.start >= rangeStart && item.start <= rangeEnd;
+    const itemDate = item.start;
+    const matchesDate = itemDate >= rangeStart && itemDate <= rangeEnd;
 
     const matchesSearch = filters.search
-      ? item.Code?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        item.Description?.toLowerCase().includes(filters.search.toLowerCase())
+      ? (item.Code?.toLowerCase().includes(filters.search.toLowerCase()) ||
+         item[" Description"]?.toLowerCase().includes(filters.search.toLowerCase()))
       : true;
 
     const matchesType = filters.type
-      ? item.Type?.toLowerCase() === filters.type.toLowerCase()
+      ? item.Type?.toLowerCase().includes(filters.type.toLowerCase())
       : true;
 
     const matchesFeed = filters.feed
@@ -75,13 +104,17 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       : true;
 
     const matchesStatus = filters.status
-      ? item.Status?.toLowerCase() === filters.status.toLowerCase()
+      ? item.Status?.toLowerCase().includes(filters.status.toLowerCase())
       : true;
 
-    return matchesDate && matchesSearch && matchesType && matchesFeed && matchesStatus;
+    const matchesShowCode = filters.showCode
+      ? item.Code?.toLowerCase().includes(filters.showCode.toLowerCase())
+      : true;
+
+    return matchesDate && matchesSearch && matchesType && 
+           matchesFeed && matchesStatus && matchesShowCode;
   });
 };
-
 
 /**
  * Componente para mostrar un control de filtro con etiqueta e ícono.
@@ -105,7 +138,6 @@ FilterControl.propTypes = {
   children: PropTypes.node.isRequired
 };
 
-
 const IngestDashboard = () => {
   const [showFilters, setShowFilters] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
@@ -113,22 +145,77 @@ const IngestDashboard = () => {
     type: '',
     feed: '',
     status: '',
-    search: ''
+    search: '',
+    showCode: ''
   });
+  
+  // Estado para controlar las pestañas de los tapes originales
+  const [tapeTabKey, setTapeTabKey] = useState('chart');
+
+  // Obtener la fecha inicial (un mes atrás) y final (actual)
+  const initialStartDate = new Date();
+  initialStartDate.setMonth(initialStartDate.getMonth() - 1);
+  
   const [tempDateRange, setTempDateRange] = useState([{
-    startDate: new Date(),
+    startDate: initialStartDate,
     endDate: new Date(),
     key: 'selection'
   }]);
+  
   const [dateRange, setDateRange] = useState([{
-    startDate: new Date(),
+    startDate: initialStartDate,
     endDate: new Date(),
     key: 'selection'
   }]);
 
   const toggleFilters = () => setShowFilters(!showFilters);
 
-  const { filteredData, typeDistribution, statusDistribution } = useMemo(() => {
+  // Extraer tipos únicos para el selector
+  const uniqueTypes = useMemo(() => {
+    const types = new Set();
+    data.forEach(item => {
+      if (item.Type) {
+        const mainType = item.Type.split(' - ')[0];
+        types.add(mainType);
+      }
+    });
+    return Array.from(types);
+  }, [data]);
+
+  // Extraer feeds únicos para el selector
+  const uniqueFeeds = useMemo(() => {
+    const feeds = new Set();
+    data.forEach(item => {
+      if (item.Feed) {
+        feeds.add(item.Feed.toString());
+      }
+    });
+    return Array.from(feeds).sort();
+  }, [data]);
+
+  // Extraer estados únicos para el selector
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set();
+    data.forEach(item => {
+      if (item.Status) {
+        statuses.add(item.Status);
+      }
+    });
+    return Array.from(statuses);
+  }, [data]);
+
+  // Extraer canales únicos de los tapes
+  const uniqueChannels = useMemo(() => {
+    const channels = new Set();
+    data.forEach(item => {
+      if (item.Channel) {
+        channels.add(item.Channel);
+      }
+    });
+    return Array.from(channels);
+  }, [data]);
+
+  const { filteredData, typeDistribution, statusDistribution, tapeData, tapesList } = useMemo(() => {
     const processed = data.map(item => ({
       ...item,
       start: processDate(item.Date)
@@ -141,35 +228,76 @@ const IngestDashboard = () => {
 
     const filtered = filterData(processed, filters, rangeStart, rangeEnd);
 
+    // Agrupar por tipo principal (Program, Commercial, etc.)
     const typeData = filtered.reduce((acc, item) => {
-      acc[item.Type] = (acc[item.Type] || 0) + 1;
+      if (!item.Type) return acc;
+      
+      // Extraer el tipo principal (antes del primer guion)
+      const mainType = item.Type.split(' - ')[0];
+      acc[mainType] = (acc[mainType] || 0) + 1;
       return acc;
     }, {});
 
+    // Normalizamos los estados para el gráfico (unificando placeholder/PLACEHOLDER)
     const statusData = filtered.reduce((acc, item) => {
-      acc[item.Status] = (acc[item.Status] || 0) + 1;
+      if (!item.Status) return acc;
+      
+      const normalizedStatus = item.Status.toLowerCase().includes('placeholder') 
+        ? 'Placeholder' 
+        : item.Status;
+      
+      acc[normalizedStatus] = (acc[normalizedStatus] || 0) + 1;
       return acc;
     }, {});
+
+    // Procesar los datos de tapes usando los datos ya filtrados
+    const { chartData: tapeChartData, tapesList: originalTapes } = processTapeData(filtered);
 
     return {
       filteredData: filtered,
       typeDistribution: Object.entries(typeData).map(([name, count]) => ({ name, count })),
-      statusDistribution: Object.entries(statusData).map(([name, count]) => ({ name, count }))
+      statusDistribution: Object.entries(statusData).map(([name, count]) => ({ name, count })),
+      tapeData: tapeChartData,
+      tapesList: originalTapes
     };
   }, [data, dateRange, filters]);
 
   const metrics = useMemo(() => ({
     total: filteredData.length,
     ready: filteredData.filter(d => d.Status === 'Ready for Distribution').length,
-    placeholder: filteredData.filter(d => d.Status === 'PLACEHOLDER').length,
+    placeholder: filteredData.filter(d => 
+      d.Status?.toLowerCase().includes('placeholder')).length,
+    readyForQC: filteredData.filter(d => d.Status === 'Ready for QC').length,
     motion: filteredData.filter(d => d.Motion).length,
     edmQc: filteredData.filter(d => d['Edm Qc']).length,
-    tedial: filteredData.filter(d => d.Tedial).length
-  }), [filteredData]);
+    tedial: filteredData.filter(d => d.Tedial).length,
+    tapes: tapesList.length
+  }), [filteredData, tapesList]);
 
   const handleApplyDate = () => {
     setDateRange([...tempDateRange]);
   };
+
+  // Agrupar tapes por canal
+  const tapesByChannel = useMemo(() => {
+    const channelData = tapesList.reduce((acc, item) => {
+      const channel = item.Channel || 'Sin Canal';
+      if (!acc[channel]) {
+        acc[channel] = [];
+      }
+      acc[channel].push(item);
+      return acc;
+    }, {});
+    
+    return Object.entries(channelData).map(([channel, tapes]) => ({
+      channel,
+      count: tapes.length,
+      tapes
+    }));
+  }, [tapesList]);
+
+  // Colores para los gráficos
+  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
 
   return (
     <Container fluid className="ingest-dashboard">
@@ -235,20 +363,20 @@ const IngestDashboard = () => {
                   </FilterControl>
                 </Col>
 
-                <Col xl={9} lg={7} md={12}>
-                  <Row className="g-3 w-60">
+                <Col xl={8} lg={7} md={12}>
+                  <Row className="g-3">
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
                         <Col xs={12} sm={6} lg={4}>
                           <FilterControl label="Tipo" icon={<FiSliders />}>
                             <Form.Select
-                              value={filters.ltsa}
-                              onChange={e => setFilters(prev => ({ ...prev, ltsa: e.target.value }))}
+                              value={filters.type}
+                              onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
                             >
                               <option value="">Todos</option>
-                              <option value="Live">En vivo</option>
-                              <option value="Tape">Grabado</option>
-                              <option value="Short Turnaround">Short</option>
+                              {uniqueTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
                             </Form.Select>
                           </FilterControl>
                         </Col>
@@ -260,7 +388,7 @@ const IngestDashboard = () => {
                               onChange={e => setFilters(prev => ({ ...prev, feed: e.target.value }))}
                             >
                               <option value="">Todos</option>
-                              {['A', 'B', 'C', 'D', 'E', 'U'].map(feed => (
+                              {uniqueFeeds.map(feed => (
                                 <option key={feed} value={feed}>{feed}</option>
                               ))}
                             </Form.Select>
@@ -268,42 +396,52 @@ const IngestDashboard = () => {
                         </Col>
 
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Red" icon={<FiTv />}>
+                          <FilterControl label="Estado" icon={<FiInfo />}>
                             <Form.Select
-                              value={filters.network}
-                              onChange={e => setFilters(prev => ({ ...prev, network: e.target.value }))}
+                              value={filters.status}
+                              onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
                             >
-                              <option value="">Todas</option>
-                              {['9', '14', '17', '53', '93', '109', '171', '173', '177', '178', '179', '193', '214', '314', '315', '417', '418', '426', '428', '651', '653', '654', '691', '692', '693']
-                                .map(network => (
-                                  <option key={network} value={network}>{network}</option>
-                                ))}
+                              <option value="">Todos</option>
+                              {uniqueStatuses.map(status => (
+                                <option key={status} value={status}>{status}</option>
+                              ))}
                             </Form.Select>
                           </FilterControl>
                         </Col>
                       </Row>
                     </Col>
 
-                    <Col md={9}>
-                      <Row className="g-1 w-80 align-items-end">
+                    <Col md={12}>
+                      <Row className="g-3 align-items-end">
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Código de Show" icon={<FiSearch />}>
+                          <FilterControl label="Código" icon={<FiSearch />}>
                             <Form.Control
                               type="text"
-                              placeholder="Programa o código..."
+                              placeholder="Buscar por código..."
                               value={filters.showCode}
                               onChange={e => setFilters(prev => ({ ...prev, showCode: e.target.value }))}
                             />
                           </FilterControl>
                         </Col>
 
-                        <Col xs={9} md={4} lg={3}>
+                        <Col xs={12} sm={6} lg={4}>
+                          <FilterControl label="Descripción" icon={<FiSearch />}>
+                            <Form.Control
+                              type="text"
+                              placeholder="Buscar en descripción..."
+                              value={filters.search}
+                              onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                            />
+                          </FilterControl>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={4}>
                           <Button
                             variant="outline-danger"
                             onClick={() => setFilters({
-                              feed: '', network: '', status: '', ltsa: '', search: '', showCode: ''
+                              type: '', feed: '', status: '', search: '', showCode: ''
                             })}
-                            className="w-90 clear-all-btn"
+                            className="w-100 clear-all-btn"
                           >
                             <FiRefreshCw className="me-2" /> Limpiar filtros
                           </Button>
@@ -321,13 +459,14 @@ const IngestDashboard = () => {
       <Row className="metrics-grid g-4 mb-5">
         {[
           { title: 'Total', value: metrics.total, icon: <FiTv />, color: 'primary' },
-          { title: 'Listos', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
+          { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
-          { title: 'Motion', value: metrics.motion, icon: <FiFilm />, color: 'info' },
-          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' },
-          { title: 'Tedial', value: metrics.tedial, icon: <FiBarChart2 />, color: 'danger' }
+          { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
+          { title: 'Motion', value: metrics.motion, icon: <FiFilm />, color: 'secondary' },
+          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'danger' },
+          { title: 'Tapes Originales', value: metrics.tapes, icon: <FiFilm />, color: 'danger' }
         ].map((metric, index) => (
-          <Col xl={4} lg={6} key={index}>
+          <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
               <Card.Body>
                 <Stack direction="horizontal" className="align-items-center">
@@ -356,8 +495,9 @@ const IngestDashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#2E86AB" />
+                  <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
+                  <Legend />
+                  <Bar dataKey="count" name="Cantidad" fill="#2E86AB" />
                 </BarChart>
               </ResponsiveContainer>
             </Card.Body>
@@ -366,7 +506,7 @@ const IngestDashboard = () => {
         <Col xl={4}>
           <Card className="chart-card">
             <Card.Header className="chart-header">
-              <PieChart className="me-2" />
+              <FiInfo className="me-2" />
               Distribución por Estado
             </Card.Header>
             <Card.Body>
@@ -379,19 +519,143 @@ const IngestDashboard = () => {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"
-                    label
+                    nameKey="name"
+                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
                     {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#2E86AB' : '#FFBB28'} />
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value) => [`${value} contenidos`, 'Cantidad']} />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </Card.Body>
           </Card>
         </Col>
       </Row>
+
+
+{/* Mostrar gráfico de tapes originales si hay datos disponibles */}
+
+      {tapeData.length > 0 && (
+  <Row className="g-4 mb-5">
+    <Col xl={12}>
+      <Card className="chart-card">
+        <Card.Header className="chart-header">
+          <FiFilm className="me-2" />
+          Tapes Originales (No derivados de eventos en vivo)
+        </Card.Header>
+        <Card.Body>
+          <Tabs
+            activeKey={tapeTabKey}
+            onSelect={(k) => setTapeTabKey(k)}
+            className="mb-3"
+          >
+            <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Gráfico</span>}>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={tapesByChannel}>
+                  <CartesianGrid strokeDasharray="4 4" />
+                  <XAxis 
+                    dataKey="Feed" 
+                    label={{ 
+                      value: 'Feed', 
+                      position: 'bottom',
+                      offset: 0 
+                    }}
+                  />
+                  <YAxis 
+                    label={{ 
+                      value: 'Cantidad de Tapes', 
+                      angle: -90, 
+                      position: 'insideLeft' 
+                    }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #cccccc',
+                      borderRadius: '4px'
+                    }}
+                    formatter={(value) => [`${value} Tapes`, '']}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="count" 
+                    name="Tapes por Feed" 
+                    fill="#2E86AB" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+
+            </Tab>
+            <Tab eventKey="details" title={<span><FiList className="me-2" />Detalle</span>}>
+              <Row className="g-4">
+                <Col md={12}>
+                  <div className="mb-4">
+                    <h6 className="mb-3">Distribución por Canal</h6>
+                    <div className="d-flex flex-wrap gap-2">
+                     
+                    </div>
+                  </div>
+                  <Table striped bordered responsive className="tape-details-table">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Duración</th>
+                        <th>Feed</th>
+                        <th>Estado</th>
+                        <th>Motion</th>
+                        <th>Edm Qc</th>
+                        <th>Tedial</th>
+                        <th>Origen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tapesList.map((tape, idx) => (
+                        <tr key={idx}>
+                          <td>{tape.Code}</td>
+                          <td>{tape[" Description"]}</td>
+                          <td>{tape.Type}</td>
+                          <td>{tape.Date}</td>
+                          <td>{tape.Duration}</td>
+                          <td>{tape.Feed}</td>
+                          <td>
+                            <Badge bg={
+                              tape.Status === "Ready for Distribution" ? "success" : 
+                              tape.Status === "Ready for QC" ? "info" : 
+                              tape.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                            }>
+                              {tape.Status}
+                            </Badge>
+                          </td>
+                          <td>{tape.Motion ? <FiCheck /> : <FiX />}</td>
+                          <td>{tape['Edm Qc'] ? <FiCheck /> : <FiX />}</td> 
+                          <td>{tape.Tedial ? <FiCheck /> : <FiX />}</td>  
+                          <td>{tape.Origin}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                  {tapesList.length === 0 && (
+                    <div className="text-center py-4">
+                      <FiXCircle className="display-6 text-muted mb-3" />
+                      <p className="text-muted">No se encontraron tapes originales con los filtros actuales</p>
+                    </div>
+                  )}
+                </Col>
+              </Row>
+            </Tab>
+          </Tabs>
+        </Card.Body>
+      </Card>
+    </Col>
+  </Row>
+)}
 
       <Accordion activeKey={showDetails ? 'details' : null}>
         <Card className="programs-accordion">
@@ -403,7 +667,7 @@ const IngestDashboard = () => {
               </Stack>
             </Card.Header>
             <Accordion.Body>
-              <Table striped bordered hover>
+              <Table striped bordered hover responsive>
                 <thead>
                   <tr>
                     <th>Código</th>
@@ -413,18 +677,35 @@ const IngestDashboard = () => {
                     <th>Fecha</th>
                     <th>Duración</th>
                     <th>Estado</th>
+                    <th>Atributos</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredData.map((item, index) => (
                     <tr key={index}>
                       <td>{item.Code}</td>
-                      <td>{item.Description}</td>
+                      <td>{item[" Description"]}</td>
                       <td>{item.Type}</td>
                       <td>{item.Feed}</td>
-                      <td>{new Date(item.Date).toLocaleString()}</td>
+                      <td>{item.Date}</td>
                       <td>{item.Duration}</td>
-                      <td>{item.Status}</td>
+                      <td>
+                        <Badge bg={
+                          item.Status === "Ready for Distribution" ? "success" : 
+                          item.Status === "Ready for QC" ? "info" : 
+                          item.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                        }>
+                          {item.Status}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Stack direction="horizontal" gap={2}>
+                          {item.Motion && <Badge bg="secondary" title="Con Motion">M</Badge>}
+                          {item['Edm Qc'] && <Badge bg="info" title="EDM QC">QC</Badge>}
+                          {item.Tedial && <Badge bg="danger" title="En Tedial">T</Badge>}
+                          {item.Origin && <Badge bg="primary" title="Origen">{item.Origin}</Badge>}
+                        </Stack>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
