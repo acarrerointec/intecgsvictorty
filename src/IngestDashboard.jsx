@@ -19,8 +19,8 @@ import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
-import data from './data/DataMediaTraker.json'; // Asegúrate de que este archivo contenga los datos JSON proporcionados
-import './IngestDashboard.css'; // Asegúrate de que este archivo contenga los estilos CSS necesarios
+import data from './data/DataMediaTraker.json'; 
+import './IngestDashboard.css'; 
 
 /**
  * Convierte una fecha en formato `DD/MM/YYYY HH:mm` a un objeto `Date`.
@@ -329,7 +329,9 @@ const IngestDashboard = () => {
     motion: filteredData.filter(d => d.Motion).length,
     edmQc: filteredData.filter(d => d['Edm Qc']).length,
     tedial: filteredData.filter(d => d.Tedial).length,
-    tapes: tapesList.length
+    tapes: tapesList.length,
+    live: filteredData.filter(d => d.Type === 'Program - Live').length,
+    shortTurnaround: filteredData.filter(d => d['Program - Short Turnaround']).length
   }), [filteredData, tapesList]);
 
   const handleApplyDate = () => {
@@ -502,9 +504,10 @@ const IngestDashboard = () => {
           { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
           { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
-          { title: 'Motion', value: metrics.motion, icon: <FiFilm />, color: 'secondary' },
-          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'danger' },
-          { title: 'Tapes Originales', value: metrics.tapes, icon: <FiFilm />, color: 'danger' }
+          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' },
+          { title: 'Tape', value: metrics.tapes, icon: <FiFilm />, color: 'danger' },
+          { title: 'Live', value: metrics.live, icon: <FiFilm />, color: 'info' },
+          { title: 'Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'warning' }
         ].map((metric, index) => (
           <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
@@ -730,7 +733,7 @@ const IngestDashboard = () => {
                               <th>Duración</th>
                               <th>Feed</th>
                               <th>Estado</th>
-                              <th>Motion</th>
+                          
                         <th>Edm Qc</th>
                         <th>Tedial</th>
                         <th>Origen</th>
@@ -754,7 +757,7 @@ const IngestDashboard = () => {
                               {tape.Status}
                             </Badge>
                           </td>
-                          <td>{tape.Motion ? <FiCheck /> : <FiX />}</td>
+        
                           <td>{tape['Edm Qc'] ? <FiCheck /> : <FiX />}</td> 
                           <td>{tape.Tedial ? <FiCheck /> : <FiX />}</td>  
                           <td>{tape.Origin}</td>
@@ -798,7 +801,7 @@ const IngestDashboard = () => {
                     <th>Fecha</th>
                     <th>Duración</th>
                     <th>Estado</th>
-                    <th>Atributos</th>
+                    <th>EDM QC</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -821,10 +824,9 @@ const IngestDashboard = () => {
                       </td>
                       <td>
                         <Stack direction="horizontal" gap={2}>
-                          {item.Motion && <Badge bg="secondary" title="Con Motion">M</Badge>}
-                          {item['Edm Qc'] && <Badge bg="info" title="EDM QC">QC</Badge>}
-                          {item.Tedial && <Badge bg="danger" title="En Tedial">T</Badge>}
-                          {item.Origin && <Badge bg="primary" title="Origen">{item.Origin}</Badge>}
+                        
+                          {item['Edm Qc'] && <Badge bg="danger" title="EDM QC">QC</Badge>}
+                         
                         </Stack>
                       </td>
                     </tr>
