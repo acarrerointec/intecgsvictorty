@@ -19,7 +19,7 @@ import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
-import data from './data/ DataMediaTraker.json'; 
+import data from './data/DataMediaTraker.json';
 import './IngestDashboard.css'; 
 
 /**
