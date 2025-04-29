@@ -500,7 +500,7 @@ const IngestDashboard = () => {
 
       <Row className="metrics-grid g-4 mb-5">
         {[
-          { title: 'Total', value: metrics.total, icon: <FiTv />, color: 'primary' },
+          { title: 'Total Contenido', value: metrics.total, icon: <FiTv />, color: 'primary' },
           { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
           { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
