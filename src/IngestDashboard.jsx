@@ -42,7 +42,7 @@ const processDate = (dateString) => {
 };
 
 /**
- * Identifica tapes que no son producto de grabaciones en vivo
+ * Identifica tapes que no son producto de grabaciones en vivo y que tienen más de dos semanas
  * @param {Array} filteredData - Datos filtrados según criterios de búsqueda
  * @returns {Object} - Datos procesados para tapes originales y lista completa de tapes
  */
@@ -52,28 +52,59 @@ const processTapeData = (filteredData) => {
     .filter(item => item.Type === 'Program - Live')
     .map(item => item.Code);
   
-  // Filtrar tapes que no tengan un código correspondiente en vivo
-  const originalTapes = filteredData.filter(item => 
-    item.Type?.includes('Program - Tape') && 
-    !liveCodes.includes(item.Code)
-  );
+  // Calcular la fecha límite (dos semanas atrás)
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  
+  // Filtrar tapes que no tengan un código correspondiente en vivo y sean de hace más de dos semanas
+  const originalTapes = filteredData.filter(item => {
+    if (!item.Type?.includes('Program - Tape')) return false;
+    if (liveCodes.includes(item.Code)) return false;
+    
+    // Verificar la antigüedad del tape
+    const tapeDate = processDate(item.Date);
+    return tapeDate => twoWeeksAgo;
+  });
 
-  // Agrupar por fecha
-  const grouped = originalTapes.reduce((acc, item) => {
+  // Agrupar por fecha y hora
+  const groupedByHourAndFeed = originalTapes.reduce((acc, item) => {
     if (!item.Date) return acc;
     
-    const date = processDate(item.Date).toLocaleDateString('es-ES');
-    acc[date] = (acc[date] || 0) + 1;
+    const date = processDate(item.Date);
+    const hour = date.getHours();
+    const feed = item.Feed || 'Sin Feed';
+    
+    // Crear clave para hora y feed
+    if (!acc[hour]) {
+      acc[hour] = {};
+    }
+    
+    if (!acc[hour][feed]) {
+      acc[hour][feed] = [];
+    }
+    
+    acc[hour][feed].push(item);
     return acc;
   }, {});
 
   // Formatear para gráfico
+  const hourlyData = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const hourData = { hour: `${hour}:00` };
+    
+    if (groupedByHourAndFeed[hour]) {
+      Object.entries(groupedByHourAndFeed[hour]).forEach(([feed, items]) => {
+        hourData[feed] = items.length;
+      });
+    }
+    
+    hourlyData.push(hourData);
+  }
+
   return {
-    chartData: Object.entries(grouped).map(([date, count]) => ({
-      date,
-      count
-    })),
-    tapesList: originalTapes
+    hourlyData,
+    tapesList: originalTapes,
+    feedList: [...new Set(originalTapes.map(item => item.Feed || 'Sin Feed'))]
   };
 };
 
@@ -151,6 +182,10 @@ const IngestDashboard = () => {
   
   // Estado para controlar las pestañas de los tapes originales
   const [tapeTabKey, setTapeTabKey] = useState('chart');
+  
+  // Estados para el control del rango horario y feeds seleccionados
+  const [hourRange, setHourRange] = useState({ start: 0, end: 23 });
+  const [selectedFeeds, setSelectedFeeds] = useState([]);
 
   // Obtener la fecha inicial (un mes atrás) y final (actual)
   const initialStartDate = new Date();
@@ -215,7 +250,7 @@ const IngestDashboard = () => {
     return Array.from(channels);
   }, [data]);
 
-  const { filteredData, typeDistribution, statusDistribution, tapeData, tapesList } = useMemo(() => {
+  const { filteredData, typeDistribution, statusDistribution, tapeData, tapesList, tapeFeeds } = useMemo(() => {
     const processed = data.map(item => ({
       ...item,
       start: processDate(item.Date)
@@ -251,16 +286,39 @@ const IngestDashboard = () => {
     }, {});
 
     // Procesar los datos de tapes usando los datos ya filtrados
-    const { chartData: tapeChartData, tapesList: originalTapes } = processTapeData(filtered);
+    const { hourlyData, tapesList: originalTapes, feedList } = processTapeData(filtered);
 
     return {
       filteredData: filtered,
       typeDistribution: Object.entries(typeData).map(([name, count]) => ({ name, count })),
       statusDistribution: Object.entries(statusData).map(([name, count]) => ({ name, count })),
-      tapeData: tapeChartData,
-      tapesList: originalTapes
+      tapeData: hourlyData,
+      tapesList: originalTapes,
+      tapeFeeds: feedList
     };
   }, [data, dateRange, filters]);
+
+  // Filtrar datos según el rango horario y feeds seleccionados
+  const filteredTapeData = useMemo(() => {
+    return tapeData
+      .filter(item => {
+        const hour = parseInt(item.hour);
+        return hour >= hourRange.start && hour <= hourRange.end;
+      })
+      .map(item => {
+        // Si hay feeds seleccionados, solo incluir esos feeds en el gráfico
+        if (selectedFeeds.length > 0) {
+          const filteredItem = { hour: item.hour };
+          selectedFeeds.forEach(feed => {
+            if (item[feed] !== undefined) {
+              filteredItem[feed] = item[feed];
+            }
+          });
+          return filteredItem;
+        }
+        return item;
+      });
+  }, [tapeData, hourRange, selectedFeeds]);
 
   const metrics = useMemo(() => ({
     total: filteredData.length,
@@ -278,24 +336,6 @@ const IngestDashboard = () => {
     setDateRange([...tempDateRange]);
   };
 
-  // Agrupar tapes por canal
-  const tapesByChannel = useMemo(() => {
-    const channelData = tapesList.reduce((acc, item) => {
-      const channel = item.Channel || 'Sin Canal';
-      if (!acc[channel]) {
-        acc[channel] = [];
-      }
-      acc[channel].push(item);
-      return acc;
-    }, {});
-    
-    return Object.entries(channelData).map(([channel, tapes]) => ({
-      channel,
-      count: tapes.length,
-      tapes
-    }));
-  }, [tapesList]);
-
   // Colores para los gráficos
   const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
 
@@ -307,14 +347,14 @@ const IngestDashboard = () => {
             <div>
               <h3 className="mb-1">Ingest Report Graphic</h3>
               <div className="date-display">
-                <FiCalendar className="me-3" />
+                <FiCalendar className="me-20" />
                 {`${dateRange[0].startDate.toLocaleDateString()} - ${dateRange[0].endDate.toLocaleDateString()}`}
               </div>
             </div>
           </Stack>
         </Col>
         <Col md={4} className="text-end">
-          <Stack direction="horizontal" gap={3} className="justify-content-end align-items-center">
+          <Stack direction="horizontal" gap={4} className="justify-content-end align-items-center">
             <Button variant="outline-primary" onClick={toggleFilters}>
               {showFilters ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
               Filtros
@@ -363,7 +403,7 @@ const IngestDashboard = () => {
                   </FilterControl>
                 </Col>
 
-                <Col xl={8} lg={7} md={12}>
+                <Col xl={9} lg={7} md={12}>
                   <Row className="g-3">
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
@@ -435,13 +475,13 @@ const IngestDashboard = () => {
                           </FilterControl>
                         </Col>
 
-                        <Col xs={12} sm={6} lg={4}>
+                        <Col xs={9} sm={4} lg={3}>
                           <Button
                             variant="outline-danger"
                             onClick={() => setFilters({
-                              type: '', feed: '', status: '', search: '', showCode: ''
+                              type: '', feed: '', status: '', search: '', showCode: '' 
                             })}
-                            className="w-100 clear-all-btn"
+                            className="w-90 clear-all-btn"
                           >
                             <FiRefreshCw className="me-2" /> Limpiar filtros
                           </Button>
@@ -535,81 +575,162 @@ const IngestDashboard = () => {
         </Col>
       </Row>
 
-
-{/* Mostrar gráfico de tapes originales si hay datos disponibles */}
-
       {tapeData.length > 0 && (
-  <Row className="g-4 mb-5">
-    <Col xl={12}>
-      <Card className="chart-card">
-        <Card.Header className="chart-header">
-          <FiFilm className="me-2" />
-          Tapes Originales (No derivados de eventos en vivo)
-        </Card.Header>
-        <Card.Body>
-          <Tabs
-            activeKey={tapeTabKey}
-            onSelect={(k) => setTapeTabKey(k)}
-            className="mb-3"
-          >
-            <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Gráfico</span>}>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={tapesByChannel}>
-                  <CartesianGrid strokeDasharray="4 4" />
-                  <XAxis 
-                    dataKey="Feed" 
-                    label={{ 
-                      value: 'Feed', 
-                      position: 'bottom',
-                      offset: 0 
-                    }}
-                  />
-                  <YAxis 
-                    label={{ 
-                      value: 'Cantidad de Tapes', 
-                      angle: -90, 
-                      position: 'insideLeft' 
-                    }}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #cccccc',
-                      borderRadius: '4px'
-                    }}
-                    formatter={(value) => [`${value} Tapes`, '']}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="count" 
-                    name="Tapes por Feed" 
-                    fill="#2E86AB" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-
-            </Tab>
-            <Tab eventKey="details" title={<span><FiList className="me-2" />Detalle</span>}>
-              <Row className="g-4">
-                <Col md={12}>
-                  <div className="mb-4">
-                    <h6 className="mb-3">Distribución por Canal</h6>
-                    <div className="d-flex flex-wrap gap-2">
-                     
+        <Row className="g-4 mb-5">
+          <Col xl={12}>
+            <Card className="chart-card">
+              <Card.Header className="chart-header">
+                <div className="d-flex justify-content-between align-items-center flex-wrap">
+                  <div>
+                    <FiFilm className="me-2" />
+                    Tapes Originales (No derivados de eventos en vivo, 2 semanas)
+                  </div>
+                  <div className="d-flex gap-3 align-items-center">
+                    <div className="d-flex align-items-center">
+                      <small className="me-2">Rango horario:</small>
+                      <div className="d-flex gap-2 align-items-center">
+                        <Form.Select 
+                          size="sm" 
+                          value={hourRange.start}
+                          onChange={(e) => setHourRange({...hourRange, start: parseInt(e.target.value)})}
+                          style={{width: '80px'}}
+                        >
+                          {Array.from({length: 24}, (_, i) => (
+                            <option key={`start-${i}`} value={i}>{`${i}:00`}</option>
+                          ))}
+                        </Form.Select>
+                        <span>-</span>
+                        <Form.Select 
+                          size="sm" 
+                          value={hourRange.end}
+                          onChange={(e) => setHourRange({...hourRange, end: parseInt(e.target.value)})}
+                          style={{width: '80px'}}
+                        >
+                          {Array.from({length: 24}, (_, i) => (
+                            <option key={`end-${i}`} value={i}>{`${i}:00`}</option>
+                          ))}
+                        </Form.Select>
+                      </div>
+                    </div>
+                    
+                    <div className="d-flex align-items-center feed-filter">
+                      <small className="me-2">Feeds:</small>
+                      <div className="d-flex flex-wrap gap-1 feed-badges">
+                        {tapeFeeds.map(feed => (
+                          <Badge 
+                            key={feed} 
+                            bg={selectedFeeds.includes(feed) ? "primary" : "secondary"}
+                            style={{cursor: 'pointer'}}
+                            onClick={() => {
+                              if (selectedFeeds.includes(feed)) {
+                                setSelectedFeeds(selectedFeeds.filter(f => f !== feed));
+                              } else {
+                                setSelectedFeeds([...selectedFeeds, feed]);
+                              }
+                            }}
+                          >
+                            {feed}
+                          </Badge>
+                        ))}
+                        {selectedFeeds.length > 0 && (
+                          <Badge 
+                            bg="danger" 
+                            style={{cursor: 'pointer'}}
+                            onClick={() => setSelectedFeeds([])}
+                          >
+                            <FiX size={12} />
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <Table striped bordered responsive className="tape-details-table">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Descripción</th>
-                        <th>Tipo</th>
-                        <th>Fecha</th>
-                        <th>Duración</th>
-                        <th>Feed</th>
-                        <th>Estado</th>
-                        <th>Motion</th>
+                </div>
+              </Card.Header>
+              <Card.Body>
+                <Tabs
+                  activeKey={tapeTabKey}
+                  onSelect={(k) => setTapeTabKey(k)}
+                  className="mb-3"
+                >
+                  <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Gráfico</span>}>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <BarChart 
+                        data={filteredTapeData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="hour" 
+                          label={{ 
+                            value: 'Hora del día', 
+                            position: 'insideBottom',
+                            offset: -5 
+                          }}
+                        />
+                        <YAxis 
+                          label={{ 
+                            value: 'Cantidad de Tapes', 
+                            angle: -90, 
+                            position: 'insideLeft',
+                            offset: -5
+                          }}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [`${value} Tapes`, name]}
+                          itemSorter={(item) => -item.value}
+                        />
+                        <Legend />
+                        {(selectedFeeds.length > 0 ? selectedFeeds : tapeFeeds).map((feed, index) => (
+                          <Bar 
+                            key={feed} 
+                            dataKey={feed} 
+                            name={feed} 
+                            stackId="stack"
+                            fill={COLORS[index % COLORS.length]} 
+                          />
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="text-center mt-3">
+                      <small className="text-muted">
+                        Mostrando {filteredTapeData.length} horas del rango horario seleccionado.
+                        Total de tapes originales: {tapesList.length} tapes con más de 2 semanas de antigüedad.
+                      </small>
+                    </div>
+                  </Tab>
+                  <Tab eventKey="details" title={<span><FiList className="me-2" />Detalle</span>}>
+                    <Row className="g-4">
+                      <Col md={12}>
+                        <div className="mb-4">
+                          <h6 className="mb-3">Distribución por Feed</h6>
+                          <div className="d-flex flex-wrap gap-2">
+                            {tapeFeeds.map((feed, index) => {
+                              const count = tapesList.filter(tape => (tape.Feed || 'Sin Feed') === feed).length;
+                              return (
+                                <Badge 
+                                  key={feed} 
+                                  bg="light" 
+                                  text="dark" 
+                                  className="p-2"
+                                  style={{borderLeft: `4px solid ${COLORS[index % COLORS.length]}`}}
+                                >
+                                  {feed}: {count} tapes
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Table striped bordered responsive className="tape-details-table">
+                          <thead>
+                            <tr>
+                              <th>Código</th>
+                              <th>Descripción</th>
+                              <th>Tipo</th>
+                              <th>Fecha</th>
+                              <th>Duración</th>
+                              <th>Feed</th>
+                              <th>Estado</th>
+                              <th>Motion</th>
                         <th>Edm Qc</th>
                         <th>Tedial</th>
                         <th>Origen</th>
@@ -657,7 +778,7 @@ const IngestDashboard = () => {
   </Row>
 )}
 
-      <Accordion activeKey={showDetails ? 'details' : null}>
+<Accordion activeKey={showDetails ? 'details' : null}>
         <Card className="programs-accordion">
           <Accordion.Item eventKey="details">
             <Card.Header className="details-header">

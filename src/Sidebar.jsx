@@ -13,6 +13,7 @@ import ExecutiveDashboard from "./ExecutiveDashboard";
 import './ExecutiveDashboard.css';
 import IngestDashboard from "./IngestDashboard";
 
+
 const Sidebar = () => {
   const [activeComponent, setActiveComponent] = useState("ExecutiveDashboard");
   const [isSidebarVisible, setIsSidebarVisible] = useState(true); // Estado para mostrar/ocultar el Sidebar
@@ -204,6 +205,7 @@ const Sidebar = () => {
       <div className="flex-grow-1" style={{ backgroundColor: '#1E1E1E', height: '100vh', overflowY: 'auto' }}>
         {activeComponent === "ExecutiveDashboard" && <ExecutiveDashboard />}
         {activeComponent === "IngestDashboard" && <IngestDashboard />}
+      
       </div>
     </div>
   );
