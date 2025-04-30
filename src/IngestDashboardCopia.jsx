@@ -129,6 +129,11 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
     const matchesType = filters.type
       ? item.Type?.toLowerCase().includes(filters.type.toLowerCase())
       : true;
+      
+    const matchesProgramType = filters.programType
+      ? (item.Type?.includes('Program - ') && 
+         item.Type?.includes(filters.programType))
+      : true;
 
     const matchesFeed = filters.feed
       ? item.Feed?.toString() === filters.feed
@@ -142,7 +147,7 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       ? item.Code?.toLowerCase().includes(filters.showCode.toLowerCase())
       : true;
 
-    return matchesDate && matchesSearch && matchesType && 
+    return matchesDate && matchesSearch && matchesType && matchesProgramType &&
            matchesFeed && matchesStatus && matchesShowCode;
   });
 };
@@ -178,6 +183,7 @@ const IngestDashboard = () => {
   const [showDetails, setShowDetails] = useState(true);
   const [filters, setFilters] = useState({
     type: '',
+    programType: '',
     feed: '',
     status: '',
     search: '',
@@ -206,7 +212,8 @@ const IngestDashboard = () => {
     endDate: new Date(),
     key: 'selection'
   }]);
-// Función para aplicar el rango de fechas
+  
+  // Función para aplicar el rango de fechas
   const toggleFilters = () => setShowFilters(!showFilters);
 
   // Extraer tipos únicos para el selector
@@ -219,6 +226,18 @@ const IngestDashboard = () => {
       }
     });
     return Array.from(types);
+  }, [data]);
+
+  // Extraer tipos de programas únicos para el nuevo selector
+  const uniqueProgramTypes = useMemo(() => {
+    const programTypes = new Set();
+    data.forEach(item => {
+      if (item.Type && item.Type.startsWith('Program - ')) {
+        const subType = item.Type.split('Program - ')[1];
+        programTypes.add(subType);
+      }
+    });
+    return Array.from(programTypes);
   }, [data]);
 
   // Extraer feeds únicos para el selector
@@ -297,7 +316,7 @@ const IngestDashboard = () => {
     // Procesar los datos de tapes usando los datos ya filtrados
     const { hourlyData, tapesList: originalTapes, feedList } = processTapeData(filtered);
 
- // Ordenar los tipos para agrupar los programas juntos
+    // Ordenar los tipos para agrupar los programas juntos
     const sortedTypeData = Object.entries(typeData).sort((a, b) => {
       // Si ambos son programas, ordenarlos por su subtipo
       if (a[0].startsWith('Program - ') && b[0].startsWith('Program - ')) {
@@ -317,7 +336,7 @@ const IngestDashboard = () => {
     
       // Distribución por estado
       statusDistributionProgram: Object.entries(statusData).map(([name, count]) => ({ name, count })),
-    // Distribución por estado
+      // Distribución por estado
       typeDistribution: Object.entries(typeData).map(([name, count]) => ({ name, count })),
       statusDistribution: Object.entries(statusData).map(([name, count]) => ({ name, count })),
       tapeData: hourlyData,
@@ -440,7 +459,7 @@ const IngestDashboard = () => {
                   <Row className="g-3">
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
-                        <Col xs={12} sm={6} lg={4}>
+                        <Col xs={12} sm={6} lg={3}>
                           <FilterControl label="Tipo" icon={<FiSliders />}>
                             <Form.Select
                               value={filters.type}
@@ -454,7 +473,21 @@ const IngestDashboard = () => {
                           </FilterControl>
                         </Col>
 
-                        <Col xs={12} sm={6} lg={4}>
+                        <Col xs={12} sm={6} lg={3}>
+                          <FilterControl label="Tipo de Programa" icon={<FiFilm />}>
+                            <Form.Select
+                              value={filters.programType}
+                              onChange={e => setFilters(prev => ({ ...prev, programType: e.target.value }))}
+                            >
+                              <option value="">Todos</option>
+                              {uniqueProgramTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </Form.Select>
+                          </FilterControl>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={3}>
                           <FilterControl label="Feed" icon={<FiType />}>
                             <Form.Select
                               value={filters.feed}
@@ -468,7 +501,7 @@ const IngestDashboard = () => {
                           </FilterControl>
                         </Col>
 
-                        <Col xs={12} sm={6} lg={4}>
+                        <Col xs={12} sm={6} lg={3}>
                           <FilterControl label="Estado" icon={<FiInfo />}>
                             <Form.Select
                               value={filters.status}
@@ -512,7 +545,7 @@ const IngestDashboard = () => {
                           <Button
                             variant="outline-danger"
                             onClick={() => setFilters({
-                              type: '', feed: '', status: '', search: '', showCode: '' 
+                              type: '', programType: '', feed: '', status: '', search: '', showCode: '' 
                             })}
                             className="w-90 clear-all-btn"
                           >

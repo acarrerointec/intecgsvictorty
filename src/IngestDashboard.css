@@ -83,6 +83,7 @@
   &.metric-success { background: linear-gradient(135deg, #28a745, #5cb85c); }
   &.metric-light { background: linear-gradient(135deg, #f8f9fa, #e9ecef); }
   &.metric-dark { background: linear-gradient(135deg, #96a3b1, #4f5e6e); }
+  
 }
 .metrics-grid .metric-card {
   border: none;
