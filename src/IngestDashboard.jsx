@@ -501,13 +501,14 @@ const IngestDashboard = () => {
       <Row className="metrics-grid g-4 mb-5">
         {[
           { title: 'Total Contenido', value: metrics.total, icon: <FiTv />, color: 'primary' },
+          { title: 'Program - Tape', value: metrics.tapes, icon: <FiFilm />, color: 'danger' },
+          { title: 'Program - Live', value: metrics.live, icon: <FiFilm />, color: 'info' },
+          { title: 'Program - Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'warning' },
           { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
           { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
-          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' },
-          { title: 'Tape', value: metrics.tapes, icon: <FiFilm />, color: 'danger' },
-          { title: 'Live', value: metrics.live, icon: <FiFilm />, color: 'info' },
-          { title: 'Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'warning' }
+          { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' }
+          
         ].map((metric, index) => (
           <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
