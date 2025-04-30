@@ -170,6 +170,8 @@ FilterControl.propTypes = {
 };
 
 const IngestDashboard = () => {
+
+  // Estado para controlar la visibilidad de los filtros y detalles
   const [showFilters, setShowFilters] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
   const [filters, setFilters] = useState({
@@ -202,7 +204,7 @@ const IngestDashboard = () => {
     endDate: new Date(),
     key: 'selection'
   }]);
-
+// Función para aplicar el rango de fechas
   const toggleFilters = () => setShowFilters(!showFilters);
 
   // Extraer tipos únicos para el selector
@@ -267,9 +269,14 @@ const IngestDashboard = () => {
     const typeData = filtered.reduce((acc, item) => {
       if (!item.Type) return acc;
       
-      // Extraer el tipo principal (antes del primer guion)
-      const mainType = item.Type.split(' - ')[0];
-      acc[mainType] = (acc[mainType] || 0) + 1;
+      // Para los programas, mantener el tipo específico completo (Live, Tape, Short Turnaround)
+      if (item.Type.startsWith('Program - ')) {
+        acc[item.Type] = (acc[item.Type] || 0) + 1;
+      } else {
+        // Para otros tipos, extraer el tipo principal (antes del primer guion)
+        const mainType = item.Type.split(' - ')[0];
+        acc[mainType] = (acc[mainType] || 0) + 1;
+      }
       return acc;
     }, {});
 
@@ -288,8 +295,27 @@ const IngestDashboard = () => {
     // Procesar los datos de tapes usando los datos ya filtrados
     const { hourlyData, tapesList: originalTapes, feedList } = processTapeData(filtered);
 
+ // Ordenar los tipos para agrupar los programas juntos
+    const sortedTypeData = Object.entries(typeData).sort((a, b) => {
+      // Si ambos son programas, ordenarlos por su subtipo
+      if (a[0].startsWith('Program - ') && b[0].startsWith('Program - ')) {
+        return a[0].localeCompare(b[0]);
+      }
+      // Si sólo uno es programa, ese va primero
+      else if (a[0].startsWith('Program - ')) return -1;
+      else if (b[0].startsWith('Program - ')) return 1;
+      // Para otros tipos, orden alfabético
+      else return a[0].localeCompare(b[0]);
+    });
+
     return {
       filteredData: filtered,
+      // Distribución por tipo
+      typeDistributionProgram: Object.entries(typeData).map(([name, count]) => ({ name, count })),
+    
+      // Distribución por estado
+      statusDistributionProgram: Object.entries(statusData).map(([name, count]) => ({ name, count })),
+    // Distribución por estado
       typeDistribution: Object.entries(typeData).map(([name, count]) => ({ name, count })),
       statusDistribution: Object.entries(statusData).map(([name, count]) => ({ name, count })),
       tapeData: hourlyData,
@@ -320,19 +346,22 @@ const IngestDashboard = () => {
       });
   }, [tapeData, hourRange, selectedFeeds]);
 
-  const metrics = useMemo(() => ({
-    total: filteredData.length,
-    ready: filteredData.filter(d => d.Status === 'Ready for Distribution').length,
-    placeholder: filteredData.filter(d => 
-      d.Status?.toLowerCase().includes('placeholder')).length,
-    readyForQC: filteredData.filter(d => d.Status === 'Ready for QC').length,
-    motion: filteredData.filter(d => d.Motion).length,
-    edmQc: filteredData.filter(d => d['Edm Qc']).length,
-    tedial: filteredData.filter(d => d.Tedial).length,
-    tapes: tapesList.length,
-    live: filteredData.filter(d => d.Type === 'Program - Live').length,
-    shortTurnaround: filteredData.filter(d => d['Program - Short Turnaround']).length
-  }), [filteredData, tapesList]);
+
+    const metrics = useMemo(() => ({
+      total: filteredData.length,
+      ready: filteredData.filter(d => d.Status === 'Ready for Distribution').length,
+      placeholder: filteredData.filter(d => 
+        d.Status?.toLowerCase().includes('placeholder')).length,
+      readyForQC: filteredData.filter(d => d.Status === 'Ready for QC').length,
+      motion: filteredData.filter(d => d.Motion).length,
+      edmQc: filteredData.filter(d => d['Edm Qc']).length,
+      tedial: filteredData.filter(d => d.Tedial).length,
+      tapes: tapesList.length,
+      live: filteredData.filter(d => d.Type === 'Program - Live').length,
+      shortTurnaround: filteredData.filter(d => d.Type === 'Program - Short Turnaround').length,
+      feed: filteredData.filter(d => d.Feed).length
+     
+    }), [filteredData, tapesList]);
 
   const handleApplyDate = () => {
     setDateRange([...tempDateRange]);
@@ -395,9 +424,9 @@ const IngestDashboard = () => {
                         />
                       </div>
                       <Button
-                        variant="primary"
+                        variant="outline-primary"
                         onClick={handleApplyDate}
-                        className="mt-2 w-90 apply-date-btn"
+                        className="mt-2 w-80 apply-date-btn"
                       >
                         <FiCheck className="me-2" /> Aplicar Fecha
                       </Button>
@@ -499,12 +528,13 @@ const IngestDashboard = () => {
       </Collapse>
 
       <Row className="metrics-grid g-4 mb-5">
+      
         {[
-          { title: 'Total Contenido', value: metrics.total, icon: <FiTv />, color: 'primary' },
-          { title: 'Program - Tape', value: metrics.tapes, icon: <FiFilm />, color: 'danger' },
-          { title: 'Program - Live', value: metrics.live, icon: <FiFilm />, color: 'info' },
-          { title: 'Program - Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'warning' },
-          { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'danger' },
+          { title: 'Total Contenido', value: metrics.total, icon: <FiTv />, color: 'dark' },
+          { title: 'Program - Live', value: metrics.live, icon: <FiFilm />, color: 'danger' },
+          { title: 'Program - Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'primary' },
+          { title: 'Program - Tape', value: metrics.tapes, icon: <FiFilm />, color: 'info' },
+          { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'primary' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
           { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
           { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' }
@@ -527,6 +557,7 @@ const IngestDashboard = () => {
       </Row>
 
       <Row className="g-4 mb-5">
+      
         <Col xl={8}>
           <Card className="chart-card">
             <Card.Header className="chart-header">
@@ -535,13 +566,40 @@ const IngestDashboard = () => {
             </Card.Header>
             <Card.Body>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={typeDistribution}>
+              <BarChart data={typeDistribution}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{fontSize: 10}}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
                   <YAxis />
                   <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
                   <Legend />
-                  <Bar dataKey="count" name="Cantidad" fill="#2E86AB" />
+                  <Bar 
+                    dataKey="count" 
+                    name="Cantidad" 
+                    fill="#2E86AB"
+                    // Asignar colores específicos a cada tipo de programa
+                    // y mantener el color predeterminado para otros tipos
+                    fillOpacity={1}
+                    stroke="#000"
+                    strokeWidth={0}
+                  >
+                    {typeDistribution.map((entry, index) => {
+                      // Colores específicos para los tipos de programas
+                      let color = "#2E86AB"; // Color predeterminado
+                      if ( entry.name === "Promotion") color = "#f39c12";
+                      if (entry.name === "Commercial") color = "#8e44ad";
+                      if (entry.name === "Program - Live") color = "#e74c3c";
+                      if (entry.name === "Program - Tape") color = "#3399ff";
+                      if (entry.name === "Program - Short Turnaround") color = "#33d1ff";
+                      return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </Card.Body>

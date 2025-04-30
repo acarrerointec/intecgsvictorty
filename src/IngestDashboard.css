@@ -75,11 +75,14 @@
     transform: translateY(-3px);
   }
   
-  &.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
-  &.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+  &.metric-primary { background: linear-gradient(135deg, #33d1ff, #3FA9F5); }
+  &.metric-danger { background: linear-gradient(135deg, #e74c3c, #ff6b6b); }
   &.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
-  &.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
+  &.metric-info { background: linear-gradient(135deg, #3399ff, #3399f3); }
   &.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
+  &.metric-success { background: linear-gradient(135deg, #28a745, #5cb85c); }
+  &.metric-light { background: linear-gradient(135deg, #f8f9fa, #e9ecef); }
+  &.metric-dark { background: linear-gradient(135deg, #96a3b1, #4f5e6e); }
 }
 .metrics-grid .metric-card {
   border: none;
