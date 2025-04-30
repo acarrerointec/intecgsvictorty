@@ -597,7 +597,7 @@ const IngestDashboard = () => {
           <Card className="chart-card">
             <Card.Header className="chart-header">
               <FiBarChart2 className="me-2" />
-              Distribución por Tipo
+              Canrtidad por tipo Contenido Progam - Commercial - Promotion
             </Card.Header>
             <Card.Body>
               <ResponsiveContainer width="100%" height={300}>
