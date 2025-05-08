@@ -456,3 +456,39 @@
 .chart-card {
   margin-bottom: 20px;
 }
+
+/* pdf */
+
+/* En IngestDashboard.css */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .ingest-dashboard, .ingest-dashboard * {
+    visibility: visible;
+  }
+  .ingest-dashboard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
+.chart-container {
+  background-color: white !important;
+}
+
+/* Asegurar que las tablas se vean bien */
+.table {
+  width: 100% !important;
+  margin-bottom: 1rem;
+  color: #212529;
+  border-collapse: collapse;
+}
+
+.table td, .table th {
+  padding: 0.75rem;
+  vertical-align: top;
+  border-top: 1px solid #dee2e6;
+}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
@@ -16,6 +16,8 @@ import {
   FiXCircle, FiTv, FiList
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
@@ -189,6 +191,71 @@ const IngestDashboard = () => {
     search: '',
     showCode: ''
   });
+  // Estado para controlar la visibilidad del PDF
+  const pdfRef = useRef();
+
+  // Función para generar el PDF
+  const handleExportPDF = async () => {
+    try {
+      // Mostrar mensaje de carga
+      const loadingMessage = document.createElement('div');
+      loadingMessage.style.position = 'fixed';
+      loadingMessage.style.top = '50%';
+      loadingMessage.style.left = '50%';
+      loadingMessage.style.transform = 'translate(-50%, -50%)';
+      loadingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      loadingMessage.style.color = 'white';
+      loadingMessage.style.padding = '20px';
+      loadingMessage.style.borderRadius = '5px';
+      loadingMessage.style.zIndex = '1000';
+      loadingMessage.textContent = 'Generando PDF...';
+      document.body.appendChild(loadingMessage);
+
+      // Capturar el contenido
+      const element = pdfRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        scrollY: -window.scrollY
+      });
+
+      // Crear PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      // Calcular cuántas páginas se necesitan
+      const totalPages = Math.ceil(pdfHeight / pdf.internal.pageSize.getHeight());
+
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(
+          imgData,
+          'PNG',
+          0,
+          -(pdf.internal.pageSize.getHeight() * i),
+          pdfWidth,
+          pdfHeight
+        );
+      }
+
+      // Eliminar mensaje de carga
+      document.body.removeChild(loadingMessage);
+
+      // Descargar PDF
+      pdf.save(`ingest-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('Error al generar el PDF. Por favor intenta nuevamente.');
+    }
+  };
+
+
 
   // Estado para controlar las pestañas de los tapes originales
   const [tapeTabKey, setTapeTabKey] = useState('chart');
@@ -392,7 +459,7 @@ const IngestDashboard = () => {
   const COLORS = ['#979a9a', '#ffc107', '#3399f3', '#bb33ff', '#3B5249', '#59A5D8'];
 
   return (
-    <Container fluid className="ingest-dashboard">
+    <Container fluid className="ingest-dashboard" ref={pdfRef}>
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
@@ -415,7 +482,7 @@ const IngestDashboard = () => {
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
               Table
             </Button>
-            <Button variant="primary">
+            <Button variant="danger" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
               Export PDF
             </Button>
@@ -597,71 +664,71 @@ const IngestDashboard = () => {
       <Row className="g-4 mb-5">
 
         <Col xl={8}>
-        <Card className="chart-card">
-  <Card.Header className="chart-header">
-    <FiBarChart2 className="me-2" />
-    Type Program (Live, Tape, Short Turnaround) - Commercial - Promotion
-  </Card.Header>
-  <Card.Body>
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={typeDistribution}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          dataKey="name" 
-          tick={{fontSize: 10}}
-          interval={0}
-          angle={-45}
-          textAnchor="end"
-          height={80}
-        />
-        <YAxis />
-        <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
-        <Bar 
-          dataKey="count" 
-          name="Contenidos"
-          fill="#e74c3c"
-          fillOpacity={1}
-        >
-          {typeDistribution.map((entry, index) => {
-            let color = "#2E86AB";
-            if (entry.name === "Promotion") color = "#f39c12";
-            if (entry.name === "Commercial") color = "#8e44ad";
-            if (entry.name === "Program - Live") color = "#e74c3c";
-            if (entry.name === "Program - Tape") color = "#3399ff";
-            if (entry.name === "Program - Short Turnaround") color = "#33d1ff";
-            return <Cell key={`cell-${index}`} fill={color} />;
-          })}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+          <Card className="chart-card">
+            <Card.Header className="chart-header">
+              <FiBarChart2 className="me-2" />
+              Type Program (Live, Tape, Short Turnaround) - Commercial - Promotion
+            </Card.Header>
+            <Card.Body>
+              <ResponsiveContainer width="100%" height={300} className="chart-container">
+                <BarChart data={typeDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10 }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis />
+                  <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
+                  <Bar
+                    dataKey="count"
+                    name="Contenidos"
+                    fill="#e74c3c"
+                    fillOpacity={1}
+                  >
+                    {typeDistribution.map((entry, index) => {
+                      let color = "#2E86AB";
+                      if (entry.name === "Promotion") color = "#f39c12";
+                      if (entry.name === "Commercial") color = "#8e44ad";
+                      if (entry.name === "Program - Live") color = "#e74c3c";
+                      if (entry.name === "Program - Tape") color = "#3399ff";
+                      if (entry.name === "Program - Short Turnaround") color = "#33d1ff";
+                      return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
 
-    {/* Leyenda personalizada debajo del gráfico */}
-    <div className="custom-legend mt-3">
-      <div className="d-flex flex-wrap justify-content-center gap-3">
-        <div className="legend-item d-flex align-items-center">
-          <span className="legend-color" style={{backgroundColor: "#e74c3c"}}></span>
-          <span className="ms-2">Program - Live</span>
-        </div>
-        <div className="legend-item d-flex align-items-center">
-          <span className="legend-color" style={{backgroundColor: "#3399ff"}}></span>
-          <span className="ms-2">Program - Tape</span>
-        </div>
-        <div className="legend-item d-flex align-items-center">
-          <span className="legend-color" style={{backgroundColor: "#33d1ff"}}></span>
-          <span className="ms-2">Program - Short Turnaround</span>
-        </div>
-        <div className="legend-item d-flex align-items-center">
-          <span className="legend-color" style={{backgroundColor: "#8e44ad"}}></span>
-          <span className="ms-2">Commercial</span>
-        </div>
-        <div className="legend-item d-flex align-items-center">
-          <span className="legend-color" style={{backgroundColor: "#f39c12"}}></span>
-          <span className="ms-2">Promotion</span>
-        </div>
-      </div>
-    </div>
-  </Card.Body>
-</Card>
+              {/* Leyenda personalizada debajo del gráfico */}
+              <div className="custom-legend mt-3">
+                <div className="d-flex flex-wrap justify-content-center gap-3">
+                  <div className="legend-item d-flex align-items-center">
+                    <span className="legend-color" style={{ backgroundColor: "#e74c3c" }}></span>
+                    <span className="ms-2">Program - Live</span>
+                  </div>
+                  <div className="legend-item d-flex align-items-center">
+                    <span className="legend-color" style={{ backgroundColor: "#3399ff" }}></span>
+                    <span className="ms-2">Program - Tape</span>
+                  </div>
+                  <div className="legend-item d-flex align-items-center">
+                    <span className="legend-color" style={{ backgroundColor: "#33d1ff" }}></span>
+                    <span className="ms-2">Program - Short Turnaround</span>
+                  </div>
+                  <div className="legend-item d-flex align-items-center">
+                    <span className="legend-color" style={{ backgroundColor: "#8e44ad" }}></span>
+                    <span className="ms-2">Commercial</span>
+                  </div>
+                  <div className="legend-item d-flex align-items-center">
+                    <span className="legend-color" style={{ backgroundColor: "#f39c12" }}></span>
+                    <span className="ms-2">Promotion</span>
+                  </div>
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
 
         </Col>
         <Col xl={4} lg={6} md={12}>
@@ -704,7 +771,7 @@ const IngestDashboard = () => {
                 <div className="d-flex justify-content-between align-items-center flex-wrap">
                   <div>
                     <FiFilm className="me-2" />
-                   Program Tapes
+                    Program Tapes
                   </div>
                   <div className="d-flex gap-3 align-items-center">
                     <div className="d-flex align-items-center">
@@ -815,7 +882,7 @@ const IngestDashboard = () => {
                     <div className="text-center mt-3">
                       <small className="text-muted">
                         Display {filteredTapeData.length} hours from the selected time range
-                        Total progam tape: {tapesList.length} 
+                        Total progam tape: {tapesList.length}
                       </small>
                     </div>
                   </Tab>
