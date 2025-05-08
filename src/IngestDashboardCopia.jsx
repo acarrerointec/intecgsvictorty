@@ -20,7 +20,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
 import data from './data/DataMediaTraker.json';
-import './IngestDashboard.css'; 
+import './IngestDashboard.css';
 
 /**
  * Convierte una fecha en formato `DD/MM/YYYY HH:mm` a un objeto `Date`.
@@ -30,7 +30,7 @@ import './IngestDashboard.css';
  */
 const processDate = (dateString) => {
   if (!dateString) return new Date();
-  
+
   try {
     const [datePart, timePart] = dateString.split(' ');
     const [day, month, year] = datePart.split('/');
@@ -51,16 +51,16 @@ const processTapeData = (filteredData) => {
   const liveCodes = filteredData
     .filter(item => item.Type === 'Program - Live')
     .map(item => item.Code);
-  
+
   // Calcular la fecha límite (dos semanas atrás)
   const twoWeeksAgo = new Date();
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-  
+
   // Filtrar tapes que no tengan un código correspondiente en vivo y sean de hace más de dos semanas
   const originalTapes = filteredData.filter(item => {
     if (!item.Type?.includes('Program - Tape')) return false;
     if (liveCodes.includes(item.Code)) return false;
-    
+
     // Verificar la antigüedad del tape
     const tapeDate = processDate(item.Date);
     return tapeDate => twoWeeksAgo;
@@ -69,20 +69,20 @@ const processTapeData = (filteredData) => {
   // Agrupar por fecha y hora
   const groupedByHourAndFeed = originalTapes.reduce((acc, item) => {
     if (!item.Date) return acc;
-    
+
     const date = processDate(item.Date);
     const hour = date.getHours();
     const feed = item.Feed || 'Sin Feed';
-    
+
     // Crear clave para hora y feed
     if (!acc[hour]) {
       acc[hour] = {};
     }
-    
+
     if (!acc[hour][feed]) {
       acc[hour][feed] = [];
     }
-    
+
     acc[hour][feed].push(item);
     return acc;
   }, {});
@@ -91,13 +91,13 @@ const processTapeData = (filteredData) => {
   const hourlyData = [];
   for (let hour = 0; hour < 24; hour++) {
     const hourData = { hour: `${hour}:00` };
-    
+
     if (groupedByHourAndFeed[hour]) {
       Object.entries(groupedByHourAndFeed[hour]).forEach(([feed, items]) => {
         hourData[feed] = items.length;
       });
     }
-    
+
     hourlyData.push(hourData);
   }
 
@@ -123,16 +123,16 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
 
     const matchesSearch = filters.search
       ? (item.Code?.toLowerCase().includes(filters.search.toLowerCase()) ||
-         item[" Description"]?.toLowerCase().includes(filters.search.toLowerCase()))
+        item[" Description"]?.toLowerCase().includes(filters.search.toLowerCase()))
       : true;
 
     const matchesType = filters.type
       ? item.Type?.toLowerCase().includes(filters.type.toLowerCase())
       : true;
-      
+
     const matchesProgramType = filters.programType
-      ? (item.Type?.includes('Program - ') && 
-         item.Type?.includes(filters.programType))
+      ? (item.Type?.includes('Program - ') &&
+        item.Type?.includes(filters.programType))
       : true;
 
     const matchesFeed = filters.feed
@@ -148,7 +148,7 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       : true;
 
     return matchesDate && matchesSearch && matchesType && matchesProgramType &&
-           matchesFeed && matchesStatus && matchesShowCode;
+      matchesFeed && matchesStatus && matchesShowCode;
   });
 };
 
@@ -189,10 +189,10 @@ const IngestDashboard = () => {
     search: '',
     showCode: ''
   });
-  
+
   // Estado para controlar las pestañas de los tapes originales
   const [tapeTabKey, setTapeTabKey] = useState('chart');
-  
+
   // Estados para el control del rango horario y feeds seleccionados
   const [hourRange, setHourRange] = useState({ start: 0, end: 23 });
   const [selectedFeeds, setSelectedFeeds] = useState([]);
@@ -200,19 +200,19 @@ const IngestDashboard = () => {
   // Obtener la fecha inicial (un mes atrás) y final (actual)
   const initialStartDate = new Date();
   initialStartDate.setMonth(initialStartDate.getMonth() - 1);
-  
+
   const [tempDateRange, setTempDateRange] = useState([{
     startDate: initialStartDate,
     endDate: new Date(),
     key: 'selection'
   }]);
-  
+
   const [dateRange, setDateRange] = useState([{
     startDate: initialStartDate,
     endDate: new Date(),
     key: 'selection'
   }]);
-  
+
   // Función para aplicar el rango de fechas
   const toggleFilters = () => setShowFilters(!showFilters);
 
@@ -289,7 +289,7 @@ const IngestDashboard = () => {
     // Agrupar por tipo principal (Program, Commercial, etc.)
     const typeData = filtered.reduce((acc, item) => {
       if (!item.Type) return acc;
-      
+
       // Para los programas, mantener el tipo específico completo (Live, Tape, Short Turnaround)
       if (item.Type.startsWith('Program - ')) {
         acc[item.Type] = (acc[item.Type] || 0) + 1;
@@ -304,11 +304,11 @@ const IngestDashboard = () => {
     // Normalizamos los estados para el gráfico (unificando placeholder/PLACEHOLDER)
     const statusData = filtered.reduce((acc, item) => {
       if (!item.Status) return acc;
-      
-      const normalizedStatus = item.Status.toLowerCase().includes('placeholder') 
-        ? 'Placeholder' 
+
+      const normalizedStatus = item.Status.toLowerCase().includes('placeholder')
+        ? 'Placeholder'
         : item.Status;
-      
+
       acc[normalizedStatus] = (acc[normalizedStatus] || 0) + 1;
       return acc;
     }, {});
@@ -333,7 +333,7 @@ const IngestDashboard = () => {
       filteredData: filtered,
       // Distribución por tipo
       typeDistributionProgram: Object.entries(typeData).map(([name, count]) => ({ name, count })),
-    
+
       // Distribución por estado
       statusDistributionProgram: Object.entries(statusData).map(([name, count]) => ({ name, count })),
       // Distribución por estado
@@ -368,28 +368,28 @@ const IngestDashboard = () => {
   }, [tapeData, hourRange, selectedFeeds]);
 
 
-    const metrics = useMemo(() => ({
-      total: filteredData.length,
-      ready: filteredData.filter(d => d.Status === 'Ready for Distribution').length,
-      placeholder: filteredData.filter(d => 
-        d.Status?.toLowerCase().includes('placeholder')).length,
-      readyForQC: filteredData.filter(d => d.Status === 'Ready for QC').length,
-      motion: filteredData.filter(d => d.Motion).length,
-      edmQc: filteredData.filter(d => d['Edm Qc']).length,
-      tedial: filteredData.filter(d => d.Tedial).length,
-      tapes: tapesList.length,
-      live: filteredData.filter(d => d.Type === 'Program - Live').length,
-      shortTurnaround: filteredData.filter(d => d.Type === 'Program - Short Turnaround').length,
-      feed: filteredData.filter(d => d.Feed).length
-     
-    }), [filteredData, tapesList]);
+  const metrics = useMemo(() => ({
+    total: filteredData.length,
+    ready: filteredData.filter(d => d.Status === 'Ready for Distribution').length,
+    placeholder: filteredData.filter(d =>
+      d.Status?.toLowerCase().includes('placeholder')).length,
+    readyForQC: filteredData.filter(d => d.Status === 'Ready for QC').length,
+    motion: filteredData.filter(d => d.Motion).length,
+    edmQc: filteredData.filter(d => d['Edm Qc']).length,
+    tedial: filteredData.filter(d => d.Tedial).length,
+    tapes: tapesList.length,
+    live: filteredData.filter(d => d.Type === 'Program - Live').length,
+    shortTurnaround: filteredData.filter(d => d.Type === 'Program - Short Turnaround').length,
+    feed: filteredData.filter(d => d.Feed).length
+
+  }), [filteredData, tapesList]);
 
   const handleApplyDate = () => {
     setDateRange([...tempDateRange]);
   };
 
-  // Colores para los gráficos
-  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
+  // Colores para los gráficos  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
+  const COLORS = ['#979a9a', '#ffc107', '#3399f3', '#bb33ff', '#3B5249', '#59A5D8'];
 
   return (
     <Container fluid className="ingest-dashboard">
@@ -409,15 +409,15 @@ const IngestDashboard = () => {
           <Stack direction="horizontal" gap={4} className="justify-content-end align-items-center">
             <Button variant="outline-primary" onClick={toggleFilters}>
               {showFilters ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
-              Filtros
+              Filtres
             </Button>
             <Button variant="outline-secondary" onClick={() => setShowDetails(!showDetails)}>
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
-              Detalles
+              Table
             </Button>
             <Button variant="primary">
               <FiDownload className="me-2" />
-              Exportar
+              Export PDF
             </Button>
           </Stack>
         </Col>
@@ -427,29 +427,30 @@ const IngestDashboard = () => {
         <div>
           <Card className="main-filters mb-5">
             <Card.Body>
-              <Row className="g-3">
-                <Col xl={4} lg={5} md={12} className="d-flex flex-column">
-                  <FilterControl label="Fecha" icon={<FiCalendar />}>
+              <Row className="g-5">
+                <Col xl={4} lg={6} md={18} className="d-flex align-items-center">
+                  <FilterControl label="Date" icon={<FiCalendar />}>
                     <div className="date-picker-container">
                       <div className="responsive-datepicker">
                         <DateRangePicker
                           ranges={tempDateRange}
                           onChange={ranges => setTempDateRange([ranges.selection])}
+
                           locale={es}
                           rangeColors={['#2E86AB']}
                           showPreview={false}
                           showDateDisplay={false}
                           editableDateInputs
                           moveRangeOnFirstSelection={false}
-                          direction="horizontal"
-                        />
+                          direction="horizontal" />
                       </div>
                       <Button
                         variant="outline-primary"
                         onClick={handleApplyDate}
-                        className="mt-2 w-80 apply-date-btn"
+
+                        className="mt-2 w-60 apply-date-btn"
                       >
-                        <FiCheck className="me-2" /> Aplicar Fecha
+                        <FiCheck className="me-2" /> Apply Date
                       </Button>
                     </div>
                   </FilterControl>
@@ -460,12 +461,12 @@ const IngestDashboard = () => {
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
                         <Col xs={12} sm={6} lg={3}>
-                          <FilterControl label="Tipo" icon={<FiSliders />}>
+                          <FilterControl label="Type" icon={<FiSliders />}>
                             <Form.Select
                               value={filters.type}
                               onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
                             >
-                              <option value="">Todos</option>
+                              <option value="">All</option>
                               {uniqueTypes.map(type => (
                                 <option key={type} value={type}>{type}</option>
                               ))}
@@ -474,12 +475,12 @@ const IngestDashboard = () => {
                         </Col>
 
                         <Col xs={12} sm={6} lg={3}>
-                          <FilterControl label="Tipo de Programa" icon={<FiFilm />}>
+                          <FilterControl label="Type program" icon={<FiFilm />}>
                             <Form.Select
                               value={filters.programType}
                               onChange={e => setFilters(prev => ({ ...prev, programType: e.target.value }))}
                             >
-                              <option value="">Todos</option>
+                              <option value="">All</option>
                               {uniqueProgramTypes.map(type => (
                                 <option key={type} value={type}>{type}</option>
                               ))}
@@ -493,7 +494,7 @@ const IngestDashboard = () => {
                               value={filters.feed}
                               onChange={e => setFilters(prev => ({ ...prev, feed: e.target.value }))}
                             >
-                              <option value="">Todos</option>
+                              <option value="">All</option>
                               {uniqueFeeds.map(feed => (
                                 <option key={feed} value={feed}>{feed}</option>
                               ))}
@@ -502,12 +503,12 @@ const IngestDashboard = () => {
                         </Col>
 
                         <Col xs={12} sm={6} lg={3}>
-                          <FilterControl label="Estado" icon={<FiInfo />}>
+                          <FilterControl label="Status" icon={<FiInfo />}>
                             <Form.Select
                               value={filters.status}
                               onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
                             >
-                              <option value="">Todos</option>
+                              <option value="">All</option>
                               {uniqueStatuses.map(status => (
                                 <option key={status} value={status}>{status}</option>
                               ))}
@@ -520,10 +521,10 @@ const IngestDashboard = () => {
                     <Col md={12}>
                       <Row className="g-3 align-items-end">
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Código" icon={<FiSearch />}>
+                          <FilterControl label="Show Code" icon={<FiSearch />}>
                             <Form.Control
                               type="text"
-                              placeholder="Buscar por código..."
+                              placeholder="Search Show code..."
                               value={filters.showCode}
                               onChange={e => setFilters(prev => ({ ...prev, showCode: e.target.value }))}
                             />
@@ -531,25 +532,27 @@ const IngestDashboard = () => {
                         </Col>
 
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Descripción" icon={<FiSearch />}>
+                          <FilterControl label="Episode Title" icon={<FiSearch />}>
                             <Form.Control
                               type="text"
-                              placeholder="Buscar en descripción..."
+                              placeholder="Search Episode Title..."
                               value={filters.search}
                               onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
                             />
                           </FilterControl>
                         </Col>
 
-                        <Col xs={9} sm={4} lg={3}>
+                        <Col xs={12} sm={4} lg={3}>
                           <Button
                             variant="outline-danger"
+
+
                             onClick={() => setFilters({
-                              type: '', programType: '', feed: '', status: '', search: '', showCode: '' 
+                              type: '', programType: '', feed: '', status: '', search: '', showCode: ''
                             })}
-                            className="w-90 clear-all-btn"
+                            className="w-80 clear-all-btn"
                           >
-                            <FiRefreshCw className="me-2" /> Limpiar filtros
+                            <FiRefreshCw className="me-2" /> Clean filters
                           </Button>
                         </Col>
                       </Row>
@@ -563,17 +566,17 @@ const IngestDashboard = () => {
       </Collapse>
 
       <Row className="metrics-grid g-4 mb-5">
-      
+
         {[
-          { title: 'Total Contenido', value: metrics.total, icon: <FiTv />, color: 'dark' },
-          { title: 'Program - Live', value: metrics.live, icon: <FiFilm />, color: 'danger' },
-          { title: 'Program - Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'primary' },
+          { title: 'Total Content', value: metrics.total, icon: <FiTv />, color: 'totalContent' },
+          { title: 'Program - Live', value: metrics.live, icon: <FiFilm />, color: 'programLive' },
+          { title: 'Program - Short Turnaround', value: metrics.shortTurnaround, icon: <FiClock />, color: 'programSt' },
           { title: 'Program - Tape', value: metrics.tapes, icon: <FiFilm />, color: 'info' },
-          { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'primary' },
+          { title: 'Ready for Distribution', value: metrics.ready, icon: <FiCheck />, color: 'readyForDistribution' },
           { title: 'Placeholders', value: metrics.placeholder, icon: <FiX />, color: 'warning' },
           { title: 'Ready for QC', value: metrics.readyForQC, icon: <FiInfo />, color: 'info' },
           { title: 'EDM QC', value: metrics.edmQc, icon: <FiMonitor />, color: 'secondary' }
-          
+
         ].map((metric, index) => (
           <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
@@ -592,72 +595,93 @@ const IngestDashboard = () => {
       </Row>
 
       <Row className="g-4 mb-5">
-      
+
         <Col xl={8}>
-          <Card className="chart-card">
-            <Card.Header className="chart-header">
-              <FiBarChart2 className="me-2" />
-              Canrtidad por ipo Contenido Progam - Commercial - Promotion
-            </Card.Header>
-            <Card.Body>
-              <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={typeDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{fontSize: 10}}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                  />
-                  <YAxis />
-                  <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
-                  <Legend />
-                  <Bar 
-                    dataKey="count" 
-                    name="Cantidad" 
-                    fill="#2E86AB"
-                    // Asignar colores específicos a cada tipo de programa
-                    // y mantener el color predeterminado para otros tipos
-                    fillOpacity={1}
-                    stroke="#000"
-                    strokeWidth={0}
-                  >
-                    {typeDistribution.map((entry, index) => {
-                      // Colores específicos para los tipos de programas
-                      let color = "#2E86AB"; // Color predeterminado
-                      if ( entry.name === "Promotion") color = "#f39c12";
-                      if (entry.name === "Commercial") color = "#8e44ad";
-                      if (entry.name === "Program - Live") color = "#e74c3c";
-                      if (entry.name === "Program - Tape") color = "#3399ff";
-                      if (entry.name === "Program - Short Turnaround") color = "#33d1ff";
-                      return <Cell key={`cell-${index}`} fill={color} />;
-                    })}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Card.Body>
-          </Card>
+        <Card className="chart-card">
+  <Card.Header className="chart-header">
+    <FiBarChart2 className="me-2" />
+    Type Program (Live, Tape, Short Turnaround) - Commercial - Promotion
+  </Card.Header>
+  <Card.Body>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={typeDistribution}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis 
+          dataKey="name" 
+          tick={{fontSize: 10}}
+          interval={0}
+          angle={-45}
+          textAnchor="end"
+          height={80}
+        />
+        <YAxis />
+        <Tooltip formatter={(value, name, props) => [`${value} contenidos`, props.payload.name]} />
+        <Bar 
+          dataKey="count" 
+          name="Contenidos"
+          fill="#e74c3c"
+          fillOpacity={1}
+        >
+          {typeDistribution.map((entry, index) => {
+            let color = "#2E86AB";
+            if (entry.name === "Promotion") color = "#f39c12";
+            if (entry.name === "Commercial") color = "#8e44ad";
+            if (entry.name === "Program - Live") color = "#e74c3c";
+            if (entry.name === "Program - Tape") color = "#3399ff";
+            if (entry.name === "Program - Short Turnaround") color = "#33d1ff";
+            return <Cell key={`cell-${index}`} fill={color} />;
+          })}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+
+    {/* Leyenda personalizada debajo del gráfico */}
+    <div className="custom-legend mt-3">
+      <div className="d-flex flex-wrap justify-content-center gap-3">
+        <div className="legend-item d-flex align-items-center">
+          <span className="legend-color" style={{backgroundColor: "#e74c3c"}}></span>
+          <span className="ms-2">Program - Live</span>
+        </div>
+        <div className="legend-item d-flex align-items-center">
+          <span className="legend-color" style={{backgroundColor: "#3399ff"}}></span>
+          <span className="ms-2">Program - Tape</span>
+        </div>
+        <div className="legend-item d-flex align-items-center">
+          <span className="legend-color" style={{backgroundColor: "#33d1ff"}}></span>
+          <span className="ms-2">Program - Short Turnaround</span>
+        </div>
+        <div className="legend-item d-flex align-items-center">
+          <span className="legend-color" style={{backgroundColor: "#8e44ad"}}></span>
+          <span className="ms-2">Commercial</span>
+        </div>
+        <div className="legend-item d-flex align-items-center">
+          <span className="legend-color" style={{backgroundColor: "#f39c12"}}></span>
+          <span className="ms-2">Promotion</span>
+        </div>
+      </div>
+    </div>
+  </Card.Body>
+</Card>
+
         </Col>
-        <Col xl={4}>
+        <Col xl={4} lg={6} md={12}>
           <Card className="chart-card">
             <Card.Header className="chart-header">
               <FiInfo className="me-2" />
-              Distribución por Estado
+              Distribution by Status
             </Card.Header>
             <Card.Body>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={340}>
                 <PieChart>
                   <Pie
                     data={statusDistribution}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={50}
                     fill="#8884d8"
                     dataKey="count"
                     nameKey="name"
-                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
                     {statusDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -680,44 +704,44 @@ const IngestDashboard = () => {
                 <div className="d-flex justify-content-between align-items-center flex-wrap">
                   <div>
                     <FiFilm className="me-2" />
-                    Tapes Originales (No derivados de eventos en vivo, 2 semanas)
+                   Program Tapes
                   </div>
                   <div className="d-flex gap-3 align-items-center">
                     <div className="d-flex align-items-center">
-                      <small className="me-2">Rango horario:</small>
+                      <small className="me-2">Time range:</small>
                       <div className="d-flex gap-2 align-items-center">
-                        <Form.Select 
-                          size="sm" 
+                        <Form.Select
+                          size="sm"
                           value={hourRange.start}
-                          onChange={(e) => setHourRange({...hourRange, start: parseInt(e.target.value)})}
-                          style={{width: '80px'}}
+                          onChange={(e) => setHourRange({ ...hourRange, start: parseInt(e.target.value) })}
+                          style={{ width: '80px' }}
                         >
-                          {Array.from({length: 24}, (_, i) => (
+                          {Array.from({ length: 24 }, (_, i) => (
                             <option key={`start-${i}`} value={i}>{`${i}:00`}</option>
                           ))}
                         </Form.Select>
                         <span>-</span>
-                        <Form.Select 
-                          size="sm" 
+                        <Form.Select
+                          size="sm"
                           value={hourRange.end}
-                          onChange={(e) => setHourRange({...hourRange, end: parseInt(e.target.value)})}
-                          style={{width: '80px'}}
+                          onChange={(e) => setHourRange({ ...hourRange, end: parseInt(e.target.value) })}
+                          style={{ width: '80px' }}
                         >
-                          {Array.from({length: 24}, (_, i) => (
+                          {Array.from({ length: 24 }, (_, i) => (
                             <option key={`end-${i}`} value={i}>{`${i}:00`}</option>
                           ))}
                         </Form.Select>
                       </div>
                     </div>
-                    
+
                     <div className="d-flex align-items-center feed-filter">
                       <small className="me-2">Feeds:</small>
                       <div className="d-flex flex-wrap gap-1 feed-badges">
                         {tapeFeeds.map(feed => (
-                          <Badge 
-                            key={feed} 
+                          <Badge
+                            key={feed}
                             bg={selectedFeeds.includes(feed) ? "primary" : "secondary"}
-                            style={{cursor: 'pointer'}}
+                            style={{ cursor: 'pointer' }}
                             onClick={() => {
                               if (selectedFeeds.includes(feed)) {
                                 setSelectedFeeds(selectedFeeds.filter(f => f !== feed));
@@ -730,9 +754,9 @@ const IngestDashboard = () => {
                           </Badge>
                         ))}
                         {selectedFeeds.length > 0 && (
-                          <Badge 
-                            bg="danger" 
-                            style={{cursor: 'pointer'}}
+                          <Badge
+                            bg="danger"
+                            style={{ cursor: 'pointer' }}
                             onClick={() => setSelectedFeeds([])}
                           >
                             <FiX size={12} />
@@ -749,67 +773,67 @@ const IngestDashboard = () => {
                   onSelect={(k) => setTapeTabKey(k)}
                   className="mb-3"
                 >
-                  <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Gráfico</span>}>
+                  <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Graphic</span>}>
                     <ResponsiveContainer width="100%" height={400}>
-                      <BarChart 
+                      <BarChart
                         data={filteredTapeData}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="hour" 
-                          label={{ 
-                            value: 'Hora del día', 
+                        <XAxis
+                          dataKey="hour"
+                          label={{
+                            value: 'Hora del día',
                             position: 'insideBottom',
-                            offset: -5 
+                            offset: -5
                           }}
                         />
-                        <YAxis 
-                          label={{ 
-                            value: 'Cantidad de Tapes', 
-                            angle: -90, 
+                        <YAxis
+                          label={{
+                            value: 'Number of Tapes',
+                            angle: -90,
                             position: 'insideLeft',
                             offset: -5
                           }}
                         />
-                        <Tooltip 
+                        <Tooltip
                           formatter={(value, name) => [`${value} Tapes`, name]}
                           itemSorter={(item) => -item.value}
                         />
                         <Legend />
                         {(selectedFeeds.length > 0 ? selectedFeeds : tapeFeeds).map((feed, index) => (
-                          <Bar 
-                            key={feed} 
-                            dataKey={feed} 
-                            name={feed} 
+                          <Bar
+                            key={feed}
+                            dataKey={feed}
+                            name={feed}
                             stackId="stack"
-                            fill={COLORS[index % COLORS.length]} 
+                            fill={COLORS[index % COLORS.length]}
                           />
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
                     <div className="text-center mt-3">
                       <small className="text-muted">
-                        Mostrando {filteredTapeData.length} horas del rango horario seleccionado.
-                        Total de tapes originales: {tapesList.length} tapes con más de 2 semanas de antigüedad.
+                        Display {filteredTapeData.length} hours from the selected time range
+                        Total progam tape: {tapesList.length} 
                       </small>
                     </div>
                   </Tab>
-                  <Tab eventKey="details" title={<span><FiList className="me-2" />Detalle</span>}>
+                  <Tab eventKey="details" title={<span><FiList className="me-2" />Table</span>}>
                     <Row className="g-4">
                       <Col md={12}>
                         <div className="mb-4">
-                          <h6 className="mb-3">Distribución por Feed</h6>
+                          <h6 className="mb-3">Distribution by Feed</h6>
                           <div className="d-flex flex-wrap gap-2">
                             {tapeFeeds.map((feed, index) => {
                               const count = tapesList.filter(tape => (tape.Feed || 'Sin Feed') === feed).length;
                               return (
-                                <Badge 
-                                  key={feed} 
-                                  bg="light" 
-                                  text="dark" 
+                                <Badge
+                                  key={feed}
+                                  bg="light"
+                                  text="dark"
                                   className="p-2"
-                                  style={{borderLeft: `4px solid ${COLORS[index % COLORS.length]}`}}
+                                  style={{ borderLeft: `4px solid ${COLORS[index % COLORS.length]}` }}
                                 >
                                   {feed}: {count} tapes
                                 </Badge>
@@ -827,60 +851,60 @@ const IngestDashboard = () => {
                               <th>Duración</th>
                               <th>Feed</th>
                               <th>Estado</th>
-                          
-                        <th>Edm Qc</th>
-                        <th>Tedial</th>
-                        <th>Origen</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tapesList.map((tape, idx) => (
-                        <tr key={idx}>
-                          <td>{tape.Code}</td>
-                          <td>{tape[" Description"]}</td>
-                          <td>{tape.Type}</td>
-                          <td>{tape.Date}</td>
-                          <td>{tape.Duration}</td>
-                          <td>{tape.Feed}</td>
-                          <td>
-                            <Badge bg={
-                              tape.Status === "Ready for Distribution" ? "success" : 
-                              tape.Status === "Ready for QC" ? "info" : 
-                              tape.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
-                            }>
-                              {tape.Status}
-                            </Badge>
-                          </td>
-        
-                          <td>{tape['Edm Qc'] ? <FiCheck /> : <FiX />}</td> 
-                          <td>{tape.Tedial ? <FiCheck /> : <FiX />}</td>  
-                          <td>{tape.Origin}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  {tapesList.length === 0 && (
-                    <div className="text-center py-4">
-                      <FiXCircle className="display-6 text-muted mb-3" />
-                      <p className="text-muted">No se encontraron tapes originales con los filtros actuales</p>
-                    </div>
-                  )}
-                </Col>
-              </Row>
-            </Tab>
-          </Tabs>
-        </Card.Body>
-      </Card>
-    </Col>
-  </Row>
-)}
 
-<Accordion activeKey={showDetails ? 'details' : null}>
+                              <th>Edm Qc</th>
+                              <th>Tedial</th>
+                              <th>Origen</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tapesList.map((tape, idx) => (
+                              <tr key={idx}>
+                                <td>{tape.Code}</td>
+                                <td>{tape[" Description"]}</td>
+                                <td>{tape.Type}</td>
+                                <td>{tape.Date}</td>
+                                <td>{tape.Duration}</td>
+                                <td>{tape.Feed}</td>
+                                <td>
+                                  <Badge bg={
+                                    tape.Status === "Ready for Distribution" ? "success" :
+                                      tape.Status === "Ready for QC" ? "info" :
+                                        tape.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                                  }>
+                                    {tape.Status}
+                                  </Badge>
+                                </td>
+
+                                <td>{tape['Edm Qc'] ? <FiCheck /> : <FiX />}</td>
+                                <td>{tape.Tedial ? <FiCheck /> : <FiX />}</td>
+                                <td>{tape.Origin}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                        {tapesList.length === 0 && (
+                          <div className="text-center py-4">
+                            <FiXCircle className="display-6 text-muted mb-3" />
+                            <p className="text-muted">No program tapes were found with the current filters</p>
+                          </div>
+                        )}
+                      </Col>
+                    </Row>
+                  </Tab>
+                </Tabs>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Accordion activeKey={showDetails ? 'details' : null}>
         <Card className="programs-accordion">
           <Accordion.Item eventKey="details">
             <Card.Header className="details-header">
               <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
-                <h5 className="mb-0">Contenido Detallado</h5>
+                <h5 className="mb-0">Table of Contents</h5>
                 <Badge bg="dark" pill>{filteredData.length}</Badge>
               </Stack>
             </Card.Header>
@@ -888,13 +912,13 @@ const IngestDashboard = () => {
               <Table striped bordered hover responsive>
                 <thead>
                   <tr>
-                    <th>Código</th>
-                    <th>Descripción</th>
-                    <th>Tipo</th>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th>Type</th>
                     <th>Feed</th>
-                    <th>Fecha</th>
-                    <th>Duración</th>
-                    <th>Estado</th>
+                    <th>Date</th>
+                    <th>Duration</th>
+                    <th>Status</th>
                     <th>EDM QC</th>
                   </tr>
                 </thead>
@@ -909,18 +933,18 @@ const IngestDashboard = () => {
                       <td>{item.Duration}</td>
                       <td>
                         <Badge bg={
-                          item.Status === "Ready for Distribution" ? "success" : 
-                          item.Status === "Ready for QC" ? "info" : 
-                          item.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                          item.Status === "Ready for Distribution" ? "success" :
+                            item.Status === "Ready for QC" ? "info" :
+                              item.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
                         }>
                           {item.Status}
                         </Badge>
                       </td>
                       <td>
                         <Stack direction="horizontal" gap={2}>
-                        
+
                           {item['Edm Qc'] && <Badge bg="danger" title="EDM QC">QC</Badge>}
-                         
+
                         </Stack>
                       </td>
                     </tr>
@@ -930,7 +954,7 @@ const IngestDashboard = () => {
               {!filteredData.length && (
                 <div className="text-center py-4">
                   <FiXCircle className="display-6 text-muted mb-3" />
-                  <p className="text-muted">No se encontraron contenidos con los filtros actuales</p>
+                  <p className="text-muted">No content found with current filters</p>
                 </div>
               )}
             </Accordion.Body>
