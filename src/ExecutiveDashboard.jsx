@@ -9,7 +9,7 @@
  * - Detección de programas duplicados
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
@@ -27,6 +27,8 @@ import {
   FiXCircle
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
@@ -408,8 +410,108 @@ const ExecutiveDashboard = () => {
     }
   }, []);
 
+  // Estado para controlar la visibilidad del PDF
+  const pdfRef = useRef();
+
+  // Función para generar el PDF
+  const handleExportPDF = async () => {
+    try {
+      // Mostrar mensaje de carga
+      const loadingMessage = document.createElement('div');
+      loadingMessage.style.position = 'fixed';
+      loadingMessage.style.top = '50%';
+      loadingMessage.style.left = '50%';
+      loadingMessage.style.transform = 'translate(-50%, -50%)';
+      loadingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      loadingMessage.style.color = 'white';
+      loadingMessage.style.padding = '20px';
+      loadingMessage.style.borderRadius = '5px';
+      loadingMessage.style.zIndex = '1000';
+      loadingMessage.textContent = 'Generando PDF...';
+      document.body.appendChild(loadingMessage);
+
+      // Capturar el contenido
+      const element = pdfRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        scrollY: -window.scrollY
+      });
+
+      // Crear PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+
+      // Calcular cuántas páginas se necesitan
+      const totalPages = Math.ceil(pdfHeight / pdf.internal.pageSize.getHeight());
+
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(
+          imgData,
+          'PNG',
+          0,
+          -(pdf.internal.pageSize.getHeight() * i),
+          pdfWidth,
+          pdfHeight
+        );
+      }
+
+      // Eliminar mensaje de carga
+      document.body.removeChild(loadingMessage);
+
+      // Descargar PDF
+      pdf.save(`ingest-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('Error al generar el PDF. Por favor intenta nuevamente.');
+    }
+  };
+
+
+  // Agregar estas funciones helper
+  const getFeedColor = (feed) => {
+    switch (feed) {
+      case 'A': return 'success';
+      case 'B': return 'info';
+      case 'C': return 'warning';
+      case 'D': return 'danger';
+      case 'E': return 'primary';
+      case 'U': return 'secondary';
+      default: return 'light';
+    }
+  };
+
+  const getDuplicateColor = (count) => {
+
+    if (count >= 5) return 'danger';
+    if (count >= 4) return 'primary';  
+    if (count >= 3) return 'warning';
+    if (count >= 2) return 'success'; 
+    return 'info';
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (time) => {
+    return time.substring(0, 5); // Formato HH:mm
+  };
+
   return (
-    <Container fluid className="executive-dashboard">
+    <Container fluid className="executive-dashboard" ref={pdfRef}>
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
@@ -433,12 +535,12 @@ const ExecutiveDashboard = () => {
               {showFilters ? (
                 <>
                   <FiEyeOff className="me-2" />
-                  Filtros
+                  Filtres
                 </>
               ) : (
                 <>
                   <FiEye className="me-2" />
-                  Mostrar Filtros
+                  View Filtres
                 </>
               )}
             </Button>
@@ -449,12 +551,12 @@ const ExecutiveDashboard = () => {
               className="d-flex align-items-center"
             >
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
-              Programas
+              Table
             </Button>
 
-            <Button variant="primary" className="d-flex align-items-center">
+            <Button variant="danger" className="d-flex align-items-center" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
-              Exportar
+              Export PDF
             </Button>
           </Stack>
         </Col>
@@ -468,7 +570,7 @@ const ExecutiveDashboard = () => {
             <Card.Body>
               <Row className="g-3">
                 <Col xl={4} lg={5} md={12} className="d-flex flex-column">
-                  <FilterControl label="Fecha" icon={<FiCalendar />}>
+                  <FilterControl label="Date" icon={<FiCalendar />}>
                     <div className="date-picker-container">
                       <div className="responsive-datepicker">
                         <DateRangePicker
@@ -488,7 +590,7 @@ const ExecutiveDashboard = () => {
                         onClick={handleApplyDate}
                         className="mt-2 w-90 apply-date-btn"
                       >
-                        <FiCheck className="me-2" /> Aplicar Fecha
+                        <FiCheck className="me-2" /> Apply Date
                       </Button>
                     </div>
                   </FilterControl>
@@ -499,15 +601,15 @@ const ExecutiveDashboard = () => {
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Tipo" icon={<FiSliders />}>
+                          <FilterControl label="Type" icon={<FiSliders />}>
                             <Form.Select
                               value={filters.ltsa}
                               onChange={e => setFilters(prev => ({ ...prev, ltsa: e.target.value }))}
                             >
-                              <option value="">Todos</option>
-                              <option value="Live">En vivo</option>
-                              <option value="Tape">Grabado</option>
-                              <option value="Short Turnaround">Short</option>
+                              <option value="">All</option>
+                              <option value="Live">Live</option>
+                              <option value="Tape">Tape</option>
+                              <option value="Short Turnaround">Short Turnaround</option>
                             </Form.Select>
                           </FilterControl>
                         </Col>
@@ -527,12 +629,12 @@ const ExecutiveDashboard = () => {
                         </Col>
 
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Red" icon={<FiTv />}>
+                          <FilterControl label="Network" icon={<FiTv />}>
                             <Form.Select
                               value={filters.network}
                               onChange={e => setFilters(prev => ({ ...prev, network: e.target.value }))}
                             >
-                              <option value="">Todas</option>
+                              <option value="">All</option>
                               {['9', '14', '17', '53', '93', '109', '171', '173', '177', '178', '179', '193', '214', '314', '315', '417', '418', '426', '428', '651', '653', '654', '691', '692', '693']
                                 .map(network => (
                                   <option key={network} value={network}>{network}</option>
@@ -545,14 +647,14 @@ const ExecutiveDashboard = () => {
 
                     <Col md={9}>
                       <Row className="g-1  w-80  align-items-end">
-                        
-                  
+
+
                         {/* Nuevo campo para show code */}
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Código de Show" icon={<FiSearch />}>
+                          <FilterControl label="Show code" icon={<FiSearch />}>
                             <Form.Control
                               type="text"
-                              placeholder="Programa o código..."
+                              placeholder="Search by show code"
                               value={filters.showCode}
                               onChange={e => setFilters(prev => ({ ...prev, showCode: e.target.value }))}
                             />
@@ -567,7 +669,7 @@ const ExecutiveDashboard = () => {
                             })}
                             className="w-90 clear-all-btn"
                           >
-                            <FiRefreshCw className="me-2" /> Limpiar filtros
+                            <FiRefreshCw className="me-2" /> Clean filtres
                           </Button>
                         </Col>
                       </Row>
@@ -582,13 +684,13 @@ const ExecutiveDashboard = () => {
       {/* ... (Mantener las secciones de métricas, gráficos y programación detallada) ... */}
       <Row className="metrics-grid g-4 mb-5">
         {[
-          { title: 'Total', value: metrics.total, icon: <FiTv />, color: 'primary' },
-          { title: 'En vivo', value: metrics.live, icon: <FiBarChart2 />, color: 'danger' },
-          { title: 'Grabados', value: metrics.tape, icon: <FiBarChart2 />, color: 'secondary' },
-          { title: 'Short', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
+          { title: 'Total Content', value: metrics.total, icon: <FiTv />, color: 'drark' },
+          { title: 'Live', value: metrics.live, icon: <FiBarChart2 />, color: 'danger' },
+          { title: 'Tape', value: metrics.tape, icon: <FiBarChart2 />, color: 'secondary' },
+          { title: 'Short Turnaroud', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
           { title: 'Plataforma', value: metrics.platform, icon: <FiMonitor />, color: 'info' },
           { title: 'Lineal', value: metrics.linear, icon: <FiFilm />, color: 'warning' },
-          { title: 'Duplicados', value: metrics.duplicates, icon: <FiCopy />, color: 'danger' }
+          { title: 'Duplicados ( Programas Unicos)', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' }
         ].map((metric, index) => (
           <Col xl={3} lg={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
@@ -609,6 +711,11 @@ const ExecutiveDashboard = () => {
       </Row>
 
       <Row className="g-4 mb-5">
+
+
+
+
+
         <Col xl={8}>
           <Card className="chart-card">
             <Card.Header className="chart-header">
@@ -725,202 +832,381 @@ const ExecutiveDashboard = () => {
       </Row>
 
 
-<Row className="g-4 mb-5">
-  <Col xl={12}>
-    <Card className="chart-card">
-      <Tabs defaultActiveKey="grafico" className="mb-3">
-        {/* Pestaña del Gráfico */}
-        <Tab eventKey="grafico" title={
-          <span><FiBarChart2 className="me-1" />Gráfico</span>
-        }>
-          <Card.Header className="chart-header">
-            Distribución por Redes (Network)
-          </Card.Header>
-          <Card.Body>
-            <div style={{ height: '400px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                {/* ... (tu código original del gráfico aquí) ... */}
-                <BarChart
-                    layout="vertical"
-                    data={networkDistribution}
-                    margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tick={{ fill: '#6c757d' }}
-                      domain={[0, 'auto']} // Asegura que siempre muestre desde 0
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={140}
-                      tick={{ fill: '#6c757d' }}
-                      interval={0}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      name="Programas por Red"
-                      fill="#2E86AB"
-                      radius={[0, 3, 3, 0]}
-                    >
-                      {networkDistribution.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`#2E86AB${Math.min(50 + index * 20, 90)}`} // Mayor opacidad base
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-              
-              </ResponsiveContainer>
-            </div>
-          </Card.Body>
-          <Card.Footer className="text-muted">
-            <small>
-              {filters.network
-                ? `Mostrando resultados para la red ${filters.network}`
-                : 'Distribución de programas por red televisiva'}
-            </small>
-          </Card.Footer>
-        </Tab>
+      <Row className="g-4 mb-5">
+        <Col xl={12}>
+          <Card className="chart-card">
+            <Tabs defaultActiveKey="grafico" className="mb-3">
+              {/* Pestaña del Gráfico */}
+              <Tab eventKey="grafico" title={
+                <span><FiBarChart2 className="me-1" />Graphic</span>
+              }>
+                <Card.Header className="chart-header">
+                  Distribution of programs by Network
+                </Card.Header>
+                <Card.Body>
+                  <div style={{ height: '400px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
 
-        {/* Pestaña de la Tabla */}
-        <Tab eventKey="tabla" title={
-          <span><FiMonitor className="me-1" />Tabla <Badge bg="dark" pill>{filteredPrograms.length}</Badge></span>
-        }>
-          <Card.Header className="chart-header">
-            Tabla Resumen de Programas
-          </Card.Header>
-          <Card.Body>
-            <div className="table-responsive">
-              {/* ... (tu código original de la tabla aquí) ... */}
-              <Table striped bordered hover className="program-table">
-            <thead>
-              <tr>
-                <th>Título</th>
-                <th>Código</th>
-                <th>Red</th>
-                <th>Feed</th>
-                <th>Horario</th>
-                <th>Tipo</th>
-                <th>Plataforma</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPrograms.map((program) => (
-                <tr key={`${program["Show Code"]}-${program.Network}`}>
-                  <td className="text-nowrap">{program["Episode Title"]}</td>
-                  <td>
-                    <Badge bg="secondary">{program["Show Code"]}</Badge>
-                  </td>
-                  <td>{program.Network}</td>
-                  <td>{program.Feed}</td>
-                  <td>
-                    <FiClock className="me-1" />
-                    {program["Start time redondeo"]}
-                  </td>
-                  <td>
-                    <Badge pill bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
-                      {program.LTSA}
-                    </Badge>
-                  </td>
-                  <td>{program.EMISION}</td>
-                  <td>
-                    {program["Start Date"]
-                      ? new Date(program["Start Date"].split('-').reverse().join('-'))
-                          .toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
-                      : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-            </div>
-            {/* Mensaje cuando no hay resultados */}
-            {!filteredPrograms.length && (
-              <div className="text-center py-4">
-                <FiXCircle className="display-6 text-muted mb-3" />
-                <p className="text-muted">No se encontraron programas con los filtros actuales</p>
-              </div>
-            )}
-          </Card.Body>
-        </Tab>
-      </Tabs>
-    </Card>
-  </Col>
-</Row>
+                      <BarChart
+                        layout="vertical"
+                        data={networkDistribution}
+                        margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fill: '#6c757d' }}
+                          domain={[0, 'auto']} // Asegura que siempre muestre desde 0
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={140}
+                          tick={{ fill: '#6c757d' }}
+                          interval={0}
+                        />
+                        <Tooltip
+                          content={<CustomTooltip />}
+                          cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                        />
+                        <Bar
+                          dataKey="count"
+                          name="Programas por Red"
+                          fill="#2E86AB"
+                          radius={[0, 3, 3, 0]}
+                        >
+                          {networkDistribution.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`#2E86AB${Math.min(50 + index * 20, 90)}`} // Mayor opacidad base
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+
+                    </ResponsiveContainer>
+                  </div>
+                </Card.Body>
+                <Card.Footer className="text-muted">
+                  <small>
+                    {filters.network
+                      ? `Showing results for the network ${filters.network}`
+                      : 'Program distribution by television network'}
+                  </small>
+                </Card.Footer>
+              </Tab>
+
+              {/* Pestaña de la Tabla */}
+              <Tab eventKey="tabla" title={
+                <span><FiMonitor className="me-1" />Table <Badge bg="dark" pill>{filteredPrograms.length}</Badge></span>
+              }>
+
+                <Card.Header className="details-header">
+                  <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
+                    <h5 className="mb-0">Table of Contents</h5>
+                    <Badge bg="dark" pill>{filteredData.length}</Badge>
+                  </Stack>
+                </Card.Header>
+                <Card.Body>
+                  <div className="table-responsive">
+
+                    <Table striped bordered hover responsive >
+                      <thead>
+                        <tr>
+                          <th>Title</th>
+                          <th>Show Code</th>
+                          <th>Network</th>
+                          <th>Feed</th>
+                          <th>Duration</th>
+                          <th>Type</th>
+                          <th>Plataforma</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPrograms.map((program) => (
+                          <tr key={`${program["Show Code"]}-${program.Network}`}>
+                            <td className="text-nowrap">{program["Episode Title"]}</td>
+                            <td>
+                              <Badge bg="secondary">{program["Show Code"]}</Badge>
+                            </td>
+                            <td>{program.Network}</td>
+                            <td>{program.Feed}</td>
+                            <td>
+                              {program.Duration}
+
+                            </td>
+                            <td>
+                              <Badge pill bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
+                                {program.LTSA}
+                              </Badge>
+                            </td>
+                            <td>{program.EMISION}</td>
+                            <td>
+                              {program["Start Date"]}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                  {/* Mensaje cuando no hay resultados */}
+                  {!filteredPrograms.length && (
+                    <div className="text-center py-4">
+                      <FiXCircle className="display-6 text-muted mb-3" />
+                      <p className="text-muted">No programs found with current filters</p>
+                    </div>
+                  )}
+                </Card.Body>
+              </Tab>
+            </Tabs>
+          </Card>
+        </Col>
+      </Row>
 
       <Accordion activeKey={showDetails ? 'details' : null}>
-        <Card className="programs-accordion">
-          <Accordion.Item eventKey="details">
-            <Card.Header className="details-header">
-              <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
-                {/* Header mejorado para mobile */}
-                <Stack direction="horizontal" gap={3} className="align-items-center mb-2 mb-md-0">
-                  <h5 className="mb-0">Programación Detallada</h5>
-                  <Badge bg="dark" pill className="fs-6">{filteredPrograms.length}</Badge>
-                </Stack>
+        <Row className="g-4 mb-5">
+          <Col xl={12}>
+            <Card className="chart-card">
+              <Tabs defaultActiveKey="grafico" className="mb-3">
+                {/* Pestaña del Gráfico */}
+                <Tab eventKey="grafico" title={<span><FiBarChart2 className="me-1" />Graphic</span>}>
+                  <Card.Header className="chart-header">
+                    <h5>Distribution of Duplicate Programs</h5>
+                  </Card.Header>
+                  <Card.Body>
+                    <div style={{ height: '400px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          layout="vertical"
+                          data={Array.from(duplicates.entries())
+                            .filter(([_, info]) => info.count > 1)
+                            .map(([key, info]) => ({
+                              name: key.split('-')[0], // Show Code
+                              count: info.count,
+                              networks: Array.from(info.networks).join(', ')
+                            }))}
+                          margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+                          <XAxis
+                            type="number"
+                            tick={{ fill: '#495057', fontSize: 12 }}
+                            domain={[0, 'auto']}
+                            axisLine={{ stroke: '#dee2e6' }}
+                            tickLine={{ stroke: '#dee2e6' }}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={140}
+                            tick={{ fill: '#495057', fontSize: 12, fontWeight: 500 }}
+                            axisLine={{ stroke: '#dee2e6' }}
+                            tickLine={{ stroke: '#dee2e6' }}
+                          />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="custom-tooltip" style={{
+                                    backgroundColor: '#fff',
+                                    padding: '10px',
+                                    border: '1px solid #dee2e6',
+                                    borderRadius: '4px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                  }}>
+                                    <p style={{
+                                      margin: '0 0 5px',
+                                      fontWeight: 'bold',
+                                      color: '#495057'
+                                    }}>
+                                      Show Code: {label}
+                                    </p>
+                                    <p style={{
+                                      margin: '0 0 5px',
+                                      color: '#6c757d'
+                                    }}>
+                                      Duplicados: {payload[0].value}
+                                    </p>
+                                    <p style={{
+                                      margin: '0',
+                                      color: '#6c757d',
+                                      fontSize: '12px'
+                                    }}>
+                                      Networks: {payload[0].payload.networks}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                          />
+                          <Bar
+                            dataKey="count"
+                            name="Duplicados"
+                          >
+                            {Array.from(duplicates.entries())
+                              .filter(([_, info]) => info.count > 1)
+                              .map((entry, index) => {
+                                const count = entry[1].count;
+                                let color;
+                                // Escala de colores basada en la cantidad de duplicados
+                                if (count > 4) {
+                                  color = '#dc3545'; // Rojo - Crítico
+                                } else if (count > 3) {
+                                  color = '#000fff'; // Azul - Alto
+                                } else if (count > 2) {
+                                  color = '#ffc107'; // Amarillo - Medio
+                                } else {
+                                  color = '#20c997'; // Verde - Bajo
+                                }
+                                return (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={color}
+                                    style={{
+                                      filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.1))',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                );
+                              })}
+                          </Bar>
+                          <Legend
+                            content={({ payload }) => (
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                padding: '10px'
+                              }}>
+                                {[
+                                  { color: '#20c997', label: '2 Network' },
+                                  { color: '#ffc107', label: '3 Network' },
+                                  { color: '#000fff', label: '4 Network' },
+                                  { color: '#dc3545', label: '5+ Network' }
+                                ].map((item, index) => (
+                                  <div key={index} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    marginRight: '20px'
+                                  }}>
+                                    <div style={{
+                                      width: '12px',
+                                      height: '12px',
+                                      backgroundColor: item.color,
+                                      marginRight: '5px',
+                                      borderRadius: '2px'
+                                    }} />
+                                    <span style={{
+                                      color: '#6c757d',
+                                      fontSize: '12px'
+                                    }}>
+                                      {item.label}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card.Body>
+                  <Card.Footer className="text-muted">
+                    <small>The colors indicate the severity of the duplication: Green (2), Yellow (3), Blue (4), Red (5+)</small>
+                  </Card.Footer>
+                </Tab>
 
-                <small className="text-muted text-nowrap">
-                  {dateRange[0]?.startDate ? (
-                    <>
-                      <FiCalendar className="me-1" />
-                      {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
-                    </>
-                  ) : 'Seleccione fecha'}
-                </small>
-              </Stack>
-            </Card.Header>
+                {/* Pestaña de la Tabla */}
+                <Tab eventKey="tabla" title={<span><FiMonitor className="me-1" />Table
+                  <Badge bg="dark" pill>{Array.from(duplicates.entries()).filter(([_, info]) => info.count > 1).length}</Badge>
+                </span>}>
+                  <Card.Header className="details-header">
+                    <h5>Table Distribution of Duplicate Programs</h5>
+                  </Card.Header>
+                  <Card.Body>
+                    <div className="table-responsive">
+                      <Table striped bordered hover responsive>
+                        <thead>
+                          <tr>
+                            <th>Show Code</th>
+                            <th>Title</th>
+                            <th>Network</th>
+                            <th>Feed</th>
 
-            <Accordion.Body>
-              {/* Estado de carga/filtros activos */}
-              {isFiltering && (
-                <div className="loading-overlay">
-                  <FiRefreshCw className="spinning-icon" />
-                </div>
-              )}
 
-              {/* Listado de programas */}
-              <Row xs={1} md={2} lg={3} className="g-4">
-                {filteredPrograms.map((program) => {
-                  const programKey = `${program["Show Code"]}-${program["Start Date"]}-${program["Start Time"]}`;
-                  const duplicateInfo = duplicates.get(programKey);
+                            <th>Duplicates</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.from(duplicates.entries())
+                            .filter(([_, info]) => info.count > 1)
+                            .map(([key, info]) => {
+                              const [showCode, date, time] = key.split('-');
+                              return (
+                                <tr key={key}>
+                                  <td>
+                                    <Badge bg="primary" className="fw-normal">
+                                      {showCode}
+                                    </Badge>
+                                  </td>
+                                  <td className="text-nowrap">
+                                    {filteredPrograms.find(p => p["Show Code"] === showCode)?.["Episode Title"] || 'N/A'}
+                                  </td>
+                                  <td>
+                                    {Array.from(info.networks).map((network, idx) => (
+                                      <Badge
+                                        key={idx}
+                                        bg="secondary"
+                                        className="me-1"
+                                        style={{ opacity: 0.8 }}
+                                      >
+                                        {network}
+                                      </Badge>
+                                    ))}
+                                  </td>
+                                  <td>
+                                    <Badge
+                                      bg={getFeedColor(filteredPrograms.find(p => p["Show Code"] === showCode)?.Feed)}
+                                      className="fw-normal"
+                                    >
+                                      {filteredPrograms.find(p => p["Show Code"] === showCode)?.Feed || 'N/A'}
+                                    </Badge>
+                                  </td>
 
-                  return (
-                    <Col key={`${programKey}-${program.Network}-${program.Feed}`}>
-                      <ProgramCard
-                        program={program}
-                        isDuplicate={duplicateInfo?.count > 1}
-                        networks={Array.from(duplicateInfo?.networks || [])}
-                      />
-                    </Col>
-                  );
-                })}
-              </Row>
 
-              {/* Estado vacío mejorado */}
-              {!filteredPrograms.length && (
-                <div className="empty-state">
-                  <FiXCircle className="empty-icon" />
-                  <h5>No hay resultados</h5>
-                  <p className="text-muted">
-                    {filters.network ? `Red ${filters.network}` : ''}
-                    {filters.search ? `Código: ${filters.search}` : ''}
-                    {!filters.search && !filters.network && 'Ajusta los filtros de búsqueda'}
-                  </p>
-                </div>
-              )}
-            </Accordion.Body>
-          </Accordion.Item>
-        </Card>
+                                  <td>
+                                    <Badge
+                                      bg={getDuplicateColor(info.count)}
+                                      pill
+                                    >
+                                      {info.count}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </Table>
+                    </div>
+                    {Array.from(duplicates.values()).filter(v => v.count > 1).length === 0 && (
+                      <div className="empty-state">
+                        <FiXCircle className="empty-icon" />
+                        <h5>No hay resultados</h5>
+                        <p className="text-muted">No duplicate programs were found with the current filters.</p>
+                      </div>
+                    )}
+                  </Card.Body>
+                </Tab>
+              </Tabs>
+            </Card>
+          </Col>
+        </Row>
+
+
       </Accordion>
-
 
 
     </Container>

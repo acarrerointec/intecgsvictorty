@@ -552,12 +552,12 @@ const ExecutiveDashboard = ({ initialData = [] }) => {
               {showFilters ? (
                 <>
                   <FiEyeOff className="me-2" />
-                  Filtros
+                  Filtres
                 </>
               ) : (
                 <>
                   <FiEye className="me-2" />
-                  Mostrar Filtros
+                  View Filtres
                 </>
               )}
             </Button>
@@ -568,7 +568,7 @@ const ExecutiveDashboard = ({ initialData = [] }) => {
               className="d-flex align-items-center"
             >
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
-              Programas
+              Table
             </Button>
 
             <Button 
@@ -577,7 +577,7 @@ const ExecutiveDashboard = ({ initialData = [] }) => {
               onClick={handleExportData}
             >
               <FiDownload className="me-2" />
-              Exportar
+              Export
             </Button>
           </Stack>
         </Col>

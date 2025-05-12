@@ -79,7 +79,10 @@
   &.metric-danger { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
   &.metric-secondary { background: linear-gradient(135deg, #69df83, #39fa24); }
   &.metric-info { background: linear-gradient(135deg, #17a2b8, #48d1cc); }
-  &.metric-warning { background: linear-gradient(135deg, #ffc107, #ffd93d); }
+  &.metric-lineal { background: linear-gradient(135deg, #c1c0be, #ababab); }
+  &.metric-drark { background: linear-gradient(135deg, #343a40, #495057); }
+  &.metric-duplicados { background: linear-gradient(135deg, #c588c9, #bd15f5); }
+
 }
 .metrics-grid .metric-card {
   border: none;
