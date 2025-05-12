@@ -24,7 +24,8 @@ import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
   FiTv, FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiXCircle
+  FiXCircle,
+  FiAirplay
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
@@ -87,6 +88,11 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       ? item.LTSA?.toString() === filters.ltsa
       : true;
 
+      const isSingleBroadcast = filters.ltsa === 'single'
+      ? data.filter(d => d["Show Code"] === item["Show Code"]).length === 1
+      : true;
+
+
     return (
       matchesDate &&
       matchesSearch &&
@@ -94,7 +100,8 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       matchesShowCode &&
       matchesFeed &&
       matchesStatus &&
-      matchesLTSA
+      matchesLTSA &&
+      isSingleBroadcast
     );
   });
 };
@@ -292,7 +299,7 @@ const ExecutiveDashboard = () => {
 
   const toggleFilters = () => setShowFilters(!showFilters);
 
-  const { filteredData, timeSlots, duplicates, networkDistribution } = useMemo(() => {
+  const { filteredData, timeSlots, duplicates, networkDistribution, showCodeNetworkMap } = useMemo(() => {
     setIsFiltering(true);
     const processed = data
       .map(item => ({
@@ -308,6 +315,29 @@ const ExecutiveDashboard = () => {
     rangeEnd.setHours(23, 59, 59, 999);
 
     const filtered = filterData(processed, filters, rangeStart, rangeEnd);
+
+      // Calcular programas únicos por network
+  const uniqueProgramsByNetwork = {};
+  const showCodeNetworkMap = {};
+
+ // Mapeamos todos los show codes a sus networks
+ processed.forEach(program => {
+  if (!showCodeNetworkMap[program["Show Code"]]) {
+    showCodeNetworkMap[program["Show Code"]] = new Set();
+  }
+  showCodeNetworkMap[program["Show Code"]].add(program.Network);
+});
+
+// Para el filtro 'single', contamos solo los programas que aparecen en una sola network
+if (filters.ltsa === 'single') {
+  filtered.forEach(program => {
+    const networksForShow = showCodeNetworkMap[program["Show Code"]];
+    if (networksForShow && networksForShow.size === 1) {
+      const network = Array.from(networksForShow)[0];
+      uniqueProgramsByNetwork[network] = (uniqueProgramsByNetwork[network] || 0) + 1;
+    }
+  });
+}
 
     const programMap = new Map();
     filtered.forEach(program => {
@@ -338,24 +368,27 @@ const ExecutiveDashboard = () => {
       }
     });
 
-    const networkData = filtered.reduce((acc, program) => {
-      const network = program.Network;
-      acc[network] = (acc[network] || 0) + 1;
-      return acc;
-    }, {});
-
-    const networkDistribution = filters.network
-      ? [{ name: filters.network, count: filtered.length }]
-      : Object.entries(networkData)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
+    const networkData = filters.ltsa === 'single'
+    ? uniqueProgramsByNetwork
+    : filtered.reduce((acc, program) => {
+        const network = program.Network;
+        acc[network] = (acc[network] || 0) + 1;
+        return acc;
+      }, {});
+  
+  const networkDistribution = filters.network
+    ? [{ name: filters.network, count: filtered.length }]
+    : Object.entries(networkData)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
 
     setIsFiltering(false);
     return {
       filteredData: filtered,
       timeSlots: slots,
       duplicates: programMap,
-      networkDistribution
+      networkDistribution,
+      showCodeNetworkMap
     };
   }, [data, dateRange, filters]);
 
@@ -366,8 +399,11 @@ const ExecutiveDashboard = () => {
     short: filteredData.filter(d => d.LTSA === 'Short Turnaround').length,
     platform: filteredData.filter(d => d.EMISION === 'PLATAFORMA').length,
     linear: filteredData.filter(d => d.EMISION === 'LINEAL').length,
-    duplicates: Array.from(duplicates.values()).filter(v => v.count > 1).length
-  }), [filteredData, duplicates]);
+    duplicates: Array.from(duplicates.values()).filter(v => v.count > 1).length,
+    programsSingles: showCodeNetworkMap 
+    ? Object.values(showCodeNetworkMap).filter(networks => networks.size === 1).length
+    : 0
+  }), [filteredData, duplicates, showCodeNetworkMap]);
 
   const handleBarClick = useCallback((data, index) => {
     if (!timeSlots || index === undefined) return;
@@ -540,7 +576,7 @@ const ExecutiveDashboard = () => {
               ) : (
                 <>
                   <FiEye className="me-2" />
-                  View Filtres
+                  Filtres
                 </>
               )}
             </Button>
@@ -607,6 +643,7 @@ const ExecutiveDashboard = () => {
                               onChange={e => setFilters(prev => ({ ...prev, ltsa: e.target.value }))}
                             >
                               <option value="">All</option>
+                              <option value="single">Single broadcast programs</option>
                               <option value="Live">Live</option>
                               <option value="Tape">Tape</option>
                               <option value="Short Turnaround">Short Turnaround</option>
@@ -690,7 +727,8 @@ const ExecutiveDashboard = () => {
           { title: 'Short Turnaroud', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
           { title: 'Plataforma', value: metrics.platform, icon: <FiMonitor />, color: 'info' },
           { title: 'Lineal', value: metrics.linear, icon: <FiFilm />, color: 'warning' },
-          { title: 'Duplicados ( Programas Unicos)', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' }
+          { title: 'Duplicados ( Programas Unicos)', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' },
+       { title: 'Single Broadcast Programs', value: metrics.programsSingles, icon: <FiAirplay />, color: 'primary' }
         ].map((metric, index) => (
           <Col xl={3} lg={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
