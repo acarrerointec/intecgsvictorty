@@ -30,6 +30,7 @@ import {
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';

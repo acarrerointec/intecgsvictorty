@@ -18,6 +18,8 @@ import {
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+
+import * as XLSX from 'xlsx';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
@@ -191,6 +193,34 @@ const IngestDashboard = () => {
     search: '',
     showCode: ''
   });
+
+  // Estado para los datos cargados del excel
+  const [data, setData] = useState([]);
+  const [fileName, setFileName] = useState('');
+
+// Función para manejar la carga de archivos
+const handleFileUpload = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  setFileName(file.name);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    
+    // Asume que la primera hoja es la que contiene los datos
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    
+    // Procesar los datos como sea necesario
+    setData(jsonData);
+  };
+  reader.readAsArrayBuffer(file);
+};
+  
+
   // Estado para controlar la visibilidad del PDF
   const pdfRef = useRef();
 
@@ -488,7 +518,31 @@ const IngestDashboard = () => {
             </Button>
           </Stack>
         </Col>
+        <Row className="g-4 mb-5">
+  <Col md={12}>
+    <Card className="upload-card">
+      <Card.Body>
+        <Form.Group controlId="formFile" className="mb-3">
+          <Form.Label>Upload Excel File</Form.Label>
+          <Form.Control 
+            type="file" 
+            accept=".xlsx, .xls, .csv" 
+            onChange={handleFileUpload}
+          />
+          {fileName && (
+            <div className="mt-2">
+              <Badge bg="info">
+                {fileName}
+              </Badge>
+            </div>
+          )}
+        </Form.Group>
+      </Card.Body>
+    </Card>
+  </Col>
+</Row>
       </Row>
+      
 
       <Collapse in={showFilters}>
         <div>
