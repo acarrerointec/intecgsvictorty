@@ -518,7 +518,15 @@ const handleFileUpload = (e) => {
             </Button>
           </Stack>
         </Col>
-        <Row className="g-4 mb-5">
+
+      </Row>
+      
+
+      <Collapse in={showFilters}>
+        <div>
+          <Card className="main-filters mb-5">
+            <Card.Body>
+            <Row className="g-4 mb-5">
   <Col md={12}>
     <Card className="upload-card">
       <Card.Body>
@@ -541,13 +549,6 @@ const handleFileUpload = (e) => {
     </Card>
   </Col>
 </Row>
-      </Row>
-      
-
-      <Collapse in={showFilters}>
-        <div>
-          <Card className="main-filters mb-5">
-            <Card.Body>
               <Row className="g-5">
                 <Col xl={4} lg={6} md={18} className="d-flex align-items-center">
                   <FilterControl label="Date" icon={<FiCalendar />}>
