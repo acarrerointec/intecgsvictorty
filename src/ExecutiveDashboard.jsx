@@ -24,13 +24,13 @@ import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
   FiTv, FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiXCircle,
-  FiAirplay
+  FiXCircle, FiAirplay, FiUpload, FiFile
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
@@ -89,7 +89,7 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       ? item.LTSA?.toString() === filters.ltsa
       : true;
 
-      const isSingleBroadcast = filters.ltsa === 'single'
+    const isSingleBroadcast = filters.ltsa === 'single'
       ? data.filter(d => d["Show Code"] === item["Show Code"]).length === 1
       : true;
 
@@ -298,11 +298,15 @@ const ExecutiveDashboard = () => {
     key: 'selection'
   }]);
 
+  // Estado para almacenar los datos subidos
+  const [uploadedData, setUploadedData] = useState(data); // Usar los datos iniciales por defecto
+  const [fileName, setFileName] = useState('programacion01al29abril.json'); // Nombre del archivo actual
+
   const toggleFilters = () => setShowFilters(!showFilters);
 
   const { filteredData, timeSlots, duplicates, networkDistribution, showCodeNetworkMap } = useMemo(() => {
     setIsFiltering(true);
-    const processed = data
+    const processed = uploadedData
       .map(item => ({
         ...item,
         start: processDate(item["Start Date"]),
@@ -317,28 +321,28 @@ const ExecutiveDashboard = () => {
 
     const filtered = filterData(processed, filters, rangeStart, rangeEnd);
 
-      // Calcular programas únicos por network
-  const uniqueProgramsByNetwork = {};
-  const showCodeNetworkMap = {};
+    // Calcular programas únicos por network
+    const uniqueProgramsByNetwork = {};
+    const showCodeNetworkMap = {};
 
- // Mapeamos todos los show codes a sus networks
- processed.forEach(program => {
-  if (!showCodeNetworkMap[program["Show Code"]]) {
-    showCodeNetworkMap[program["Show Code"]] = new Set();
-  }
-  showCodeNetworkMap[program["Show Code"]].add(program.Network);
-});
+    // Mapeamos todos los show codes a sus networks
+    processed.forEach(program => {
+      if (!showCodeNetworkMap[program["Show Code"]]) {
+        showCodeNetworkMap[program["Show Code"]] = new Set();
+      }
+      showCodeNetworkMap[program["Show Code"]].add(program.Network);
+    });
 
-// Para el filtro 'single', contamos solo los programas que aparecen en una sola network
-if (filters.ltsa === 'single') {
-  filtered.forEach(program => {
-    const networksForShow = showCodeNetworkMap[program["Show Code"]];
-    if (networksForShow && networksForShow.size === 1) {
-      const network = Array.from(networksForShow)[0];
-      uniqueProgramsByNetwork[network] = (uniqueProgramsByNetwork[network] || 0) + 1;
+    // Para el filtro 'single', contamos solo los programas que aparecen en una sola network
+    if (filters.ltsa === 'single') {
+      filtered.forEach(program => {
+        const networksForShow = showCodeNetworkMap[program["Show Code"]];
+        if (networksForShow && networksForShow.size === 1) {
+          const network = Array.from(networksForShow)[0];
+          uniqueProgramsByNetwork[network] = (uniqueProgramsByNetwork[network] || 0) + 1;
+        }
+      });
     }
-  });
-}
 
     const programMap = new Map();
     filtered.forEach(program => {
@@ -370,18 +374,18 @@ if (filters.ltsa === 'single') {
     });
 
     const networkData = filters.ltsa === 'single'
-    ? uniqueProgramsByNetwork
-    : filtered.reduce((acc, program) => {
+      ? uniqueProgramsByNetwork
+      : filtered.reduce((acc, program) => {
         const network = program.Network;
         acc[network] = (acc[network] || 0) + 1;
         return acc;
       }, {});
-  
-  const networkDistribution = filters.network
-    ? [{ name: filters.network, count: filtered.length }]
-    : Object.entries(networkData)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+
+    const networkDistribution = filters.network
+      ? [{ name: filters.network, count: filtered.length }]
+      : Object.entries(networkData)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
 
     setIsFiltering(false);
     return {
@@ -401,9 +405,9 @@ if (filters.ltsa === 'single') {
     platform: filteredData.filter(d => d.EMISION === 'PLATAFORMA').length,
     linear: filteredData.filter(d => d.EMISION === 'LINEAL').length,
     duplicates: Array.from(duplicates.values()).filter(v => v.count > 1).length,
-    programsSingles: showCodeNetworkMap 
-    ? Object.values(showCodeNetworkMap).filter(networks => networks.size === 1).length
-    : 0
+    programsSingles: showCodeNetworkMap
+      ? Object.values(showCodeNetworkMap).filter(networks => networks.size === 1).length
+      : 0
   }), [filteredData, duplicates, showCodeNetworkMap]);
 
   const handleBarClick = useCallback((data, index) => {
@@ -511,6 +515,40 @@ if (filters.ltsa === 'single') {
       alert('Error al generar el PDF. Por favor intenta nuevamente.');
     }
   };
+  //Funcion de carga de excel
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // Procesar los datos como lo haces actualmente
+      const processed = jsonData.map(item => ({
+        ...item,
+        start: processDate(item["Start Date"]),
+        end: processDate(item["End Date"])
+      })).filter(item => !isNaN(item.start.getTime()) && !isNaN(item.end.getTime()));
+
+      setUploadedData(processed);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleExportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(filteredData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Programación");
+    XLSX.writeFile(workbook, `programacion_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
 
   // Agregar estas funciones helper
@@ -529,9 +567,9 @@ if (filters.ltsa === 'single') {
   const getDuplicateColor = (count) => {
 
     if (count >= 5) return 'danger';
-    if (count >= 4) return 'primary';  
+    if (count >= 4) return 'primary';
     if (count >= 3) return 'warning';
-    if (count >= 2) return 'success'; 
+    if (count >= 2) return 'success';
     return 'info';
   };
 
@@ -591,6 +629,22 @@ if (filters.ltsa === 'single') {
               Table
             </Button>
 
+            <Button
+              variant="outline-success"
+              className="d-flex align-items-center"
+              onClick={() => document.getElementById('file-upload').click()}
+            >
+              <FiUpload className="me-2" />
+              Upload Excel
+              <input
+                id="file-upload"
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+            </Button>
+
             <Button variant="danger" className="d-flex align-items-center" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
               Export PDF
@@ -601,6 +655,16 @@ if (filters.ltsa === 'single') {
 
       </Row>
 
+
+
+              <div className="date-display">
+  <FiCalendar className="me-3" />
+  {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
+  <span className="ms-3 text-muted">
+    <FiFile className="me-1" />
+    {fileName}
+  </span>
+</div>
       <Collapse in={showFilters}>
         <div>
           <Card className="main-filters mb-5">
@@ -728,8 +792,8 @@ if (filters.ltsa === 'single') {
           { title: 'Short Turnaroud', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
           { title: 'Plataforma', value: metrics.platform, icon: <FiMonitor />, color: 'info' },
           { title: 'Lineal', value: metrics.linear, icon: <FiFilm />, color: 'warning' },
-          { title: 'Duplicados ( Programas Unicos)', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' },
-       { title: 'Single Broadcast Programs', value: metrics.programsSingles, icon: <FiAirplay />, color: 'primary' }
+          { title: 'Duplicate Show Code network', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' }
+
         ].map((metric, index) => (
           <Col xl={3} lg={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
