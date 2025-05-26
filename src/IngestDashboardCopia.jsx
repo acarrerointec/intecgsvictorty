@@ -13,7 +13,8 @@ import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
   FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiXCircle, FiTv, FiList
+  FiXCircle, FiTv, FiList,
+  FiUpload
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
@@ -23,8 +24,10 @@ import * as XLSX from 'xlsx';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
-import data from './data/DataMediaTraker.json';
+// import data from './data/DataMediaTraker.json';
 import './IngestDashboard.css';
+
+
 
 /**
  * Convierte una fecha en formato `DD/MM/YYYY HH:mm` a un objeto `Date`.
@@ -114,14 +117,14 @@ const processTapeData = (filteredData) => {
 
 /**
  * Filtra los datos según los filtros aplicados y el rango de fechas.
- * @param {Array} data - Lista de contenidos a filtrar.
+ * @param {Array} dashboardData - Lista de contenidos a filtrar.
  * @param {Object} filters - Filtros aplicados (type, feed, status, search).
  * @param {Date} rangeStart - Fecha de inicio del rango.
  * @param {Date} rangeEnd - Fecha de fin del rango.
  * @returns {Array} - Lista de contenidos filtrados.
  */
-const filterData = (data, filters, rangeStart, rangeEnd) => {
-  return data.filter(item => {
+const filterData = (dashboardData, filters, rangeStart, rangeEnd) => {
+  return dashboardData.filter(item => {
     const itemDate = item.start;
     const matchesDate = itemDate >= rangeStart && itemDate <= rangeEnd;
 
@@ -182,6 +185,19 @@ FilterControl.propTypes = {
 
 const IngestDashboard = () => {
 
+
+  // Guardar datos y nombre de archivo en localStorage al inicializar
+  const [dashboardData, setDashboardData] = useState(() => {
+    // Cargar datos desde localStorage al inicializar
+    const savedData = localStorage.getItem('ingestDashboardData');
+    return savedData ? JSON.parse(savedData) : [];
+  });
+
+  const [fileName, setFileName] = useState(() => {
+    const savedFileName = localStorage.getItem('ingestDashboardFileName');
+    return savedFileName || '';
+  });
+
   // Estado para controlar la visibilidad de los filtros y detalles
   const [showFilters, setShowFilters] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
@@ -194,32 +210,33 @@ const IngestDashboard = () => {
     showCode: ''
   });
 
-  // Estado para los datos cargados del excel
-  const [data, setData] = useState([]);
-  const [fileName, setFileName] = useState('');
 
-// Función para manejar la carga de archivos
-const handleFileUpload = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
 
-  setFileName(file.name);
+  /*Estado para los datos cargados del excel
+  const [dashboardData, setDashboardData] = useState([]);
+  const [fileName, setFileName] = useState('');  */
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const data = new Uint8Array(e.target.result);
-    const workbook = XLSX.read(data, { type: 'array' });
-    
-    // Asume que la primera hoja es la que contiene los datos
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-    
-    // Procesar los datos como sea necesario
-    setData(jsonData);
+
+  //Función para manejar la carga de archivos
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    localStorage.setItem('ingestDashboardFileName', file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      setDashboardData(jsonData);
+      localStorage.setItem('ingestDashboardData', JSON.stringify(jsonData));
+    };
+    reader.readAsArrayBuffer(file);
   };
-  reader.readAsArrayBuffer(file);
-};
-  
 
   // Estado para controlar la visibilidad del PDF
   const pdfRef = useRef();
@@ -316,6 +333,19 @@ const handleFileUpload = (e) => {
   // Extraer tipos únicos para el selector
   const uniqueTypes = useMemo(() => {
     const types = new Set();
+    dashboardData.forEach(item => {
+      if (item.Type) {
+        const mainType = item.Type.split(' - ')[0];
+        types.add(mainType);
+      }
+    });
+    return Array.from(types);
+  }, [dashboardData]);
+
+
+  /*
+  const uniqueTypes = useMemo(() => {
+    const types = new Set();
     data.forEach(item => {
       if (item.Type) {
         const mainType = item.Type.split(' - ')[0];
@@ -324,54 +354,55 @@ const handleFileUpload = (e) => {
     });
     return Array.from(types);
   }, [data]);
+*/
 
   // Extraer tipos de programas únicos para el nuevo selector
   const uniqueProgramTypes = useMemo(() => {
     const programTypes = new Set();
-    data.forEach(item => {
+    dashboardData.forEach(item => {
       if (item.Type && item.Type.startsWith('Program - ')) {
         const subType = item.Type.split('Program - ')[1];
         programTypes.add(subType);
       }
     });
     return Array.from(programTypes);
-  }, [data]);
+  }, [dashboardData]);
 
   // Extraer feeds únicos para el selector
   const uniqueFeeds = useMemo(() => {
     const feeds = new Set();
-    data.forEach(item => {
+    dashboardData.forEach(item => {
       if (item.Feed) {
         feeds.add(item.Feed.toString());
       }
     });
     return Array.from(feeds).sort();
-  }, [data]);
+  }, [dashboardData]);
 
   // Extraer estados únicos para el selector
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set();
-    data.forEach(item => {
+    dashboardData.forEach(item => {
       if (item.Status) {
         statuses.add(item.Status);
       }
     });
     return Array.from(statuses);
-  }, [data]);
+  }, [dashboardData]);
 
   // Extraer canales únicos de los tapes
   const uniqueChannels = useMemo(() => {
     const channels = new Set();
-    data.forEach(item => {
+    dashboardData.forEach(item => {
       if (item.Channel) {
         channels.add(item.Channel);
       }
     });
     return Array.from(channels);
-  }, [data]);
+  }, [dashboardData]);
 
   const { filteredData, typeDistribution, statusDistribution, tapeData, tapesList, tapeFeeds } = useMemo(() => {
-    const processed = data.map(item => ({
+    const processed = dashboardData.map(item => ({
       ...item,
       start: processDate(item.Date)
     })).filter(item => !isNaN(item.start.getTime()));
@@ -440,7 +471,7 @@ const handleFileUpload = (e) => {
       tapesList: originalTapes,
       tapeFeeds: feedList
     };
-  }, [data, dateRange, filters]);
+  }, [dashboardData, dateRange, filters]);
 
   // Filtrar datos según el rango horario y feeds seleccionados
   const filteredTapeData = useMemo(() => {
@@ -490,13 +521,15 @@ const handleFileUpload = (e) => {
 
   return (
     <Container fluid className="ingest-dashboard" ref={pdfRef}>
+  
+
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
             <div>
               <h3 className="mb-1">Ingest Report Graphic</h3>
               <div className="date-display">
-                <FiCalendar className="me-20" />
+                <FiCalendar className="me-3" />
                 {`${dateRange[0].startDate.toLocaleDateString()} - ${dateRange[0].endDate.toLocaleDateString()}`}
               </div>
             </div>
@@ -504,6 +537,7 @@ const handleFileUpload = (e) => {
         </Col>
         <Col md={4} className="text-end">
           <Stack direction="horizontal" gap={4} className="justify-content-end align-items-center">
+
             <Button variant="outline-primary" onClick={toggleFilters}>
               {showFilters ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
               Filtres
@@ -512,43 +546,76 @@ const handleFileUpload = (e) => {
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
               Table
             </Button>
+
+            <Button
+              as="label"
+              htmlFor="file-upload"
+              variant="outline-success"
+              className="me-2"
+            >
+
+              <FiUpload className="me-2" />
+              Upload Excel
+            </Button>
+
             <Button variant="danger" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
               Export PDF
             </Button>
+
+
           </Stack>
         </Col>
-
       </Row>
+
+
+
+      <div className="file-upload-btn mb-4 align-items-center">
+        <input
+          id="file-upload"
+          type="file"
+          accept=".xlsx, .xls, .csv"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+        />
+
+        {fileName && (
+          <Badge bg="info" className="ms-20" > 
+            {fileName}
+          </Badge>
+        )}
       
+      </div>
 
       <Collapse in={showFilters}>
         <div>
           <Card className="main-filters mb-5">
             <Card.Body>
-            <Row className="g-4 mb-5">
-  <Col md={12}>
-    <Card className="upload-card">
-      <Card.Body>
-        <Form.Group controlId="formFile" className="mb-3">
-          <Form.Label>Upload Excel File</Form.Label>
-          <Form.Control 
-            type="file" 
-            accept=".xlsx, .xls, .csv" 
-            onChange={handleFileUpload}
-          />
-          {fileName && (
-            <div className="mt-2">
-              <Badge bg="info">
-                {fileName}
-              </Badge>
-            </div>
-          )}
-        </Form.Group>
-      </Card.Body>
-    </Card>
-  </Col>
-</Row>
+              {/*
+              <Row className="g-4 mb-5">
+                <Col md={12}>
+                  <Card className="upload-card">
+                    <Card.Body>
+                      <Form.Group controlId="formFile" className="mb-3">
+                        <Form.Label>Upload Excel File</Form.Label>
+                        <Form.Control
+                          type="file"
+                          accept=".xlsx, .xls, .csv"
+                          onChange={handleFileUpload}
+                        />
+                        {fileName && (
+                          <div className="mt-2">
+                            <Badge bg="info">
+                              {fileName}
+                            </Badge>
+                          </div>
+                        )}
+                      </Form.Group>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+              */}
               <Row className="g-5">
                 <Col xl={4} lg={6} md={18} className="d-flex align-items-center">
                   <FilterControl label="Date" icon={<FiCalendar />}>
@@ -898,7 +965,7 @@ const handleFileUpload = (e) => {
                   <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Graphic</span>}>
                     <ResponsiveContainer width="100%" height={400}>
                       <BarChart
-                        data={filteredTapeData}
+                        dashboardData={filteredTapeData}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />

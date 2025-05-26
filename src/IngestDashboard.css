@@ -492,3 +492,17 @@
   vertical-align: top;
   border-top: 1px solid #dee2e6;
 }
+
+/* Estilo para el contenedor del botón de upload */
+.file-upload-btn {
+  display: flex;
+  align-items: center;
+}
+
+/* Estilo para el badge del nombre de archivo */
+.file-upload-btn .badge {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
