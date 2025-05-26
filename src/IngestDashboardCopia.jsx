@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
@@ -12,7 +12,7 @@ import {
 import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
-  FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
+  FiFilm, FiType, FiInfo, FiBarChart2, FiX, FiCheck,
   FiXCircle, FiTv, FiList,
   FiUpload
 } from 'react-icons/fi';
@@ -38,10 +38,26 @@ import './IngestDashboard.css';
 const processDate = (dateString) => {
   if (!dateString) return new Date();
 
+  // Intentar múltiples formatos
   try {
-    const [datePart, timePart] = dateString.split(' ');
-    const [day, month, year] = datePart.split('/');
-    return new Date(`${year}-${month}-${day}T${timePart}`);
+    // Formato DD/MM/YYYY HH:mm
+    if (dateString.includes('/')) {
+      const [datePart, timePart] = dateString.split(' ');
+      const [day, month, year] = datePart.split('/');
+      return new Date(`${year}-${month}-${day}T${timePart}`);
+    }
+
+    // Formato ISO (YYYY-MM-DD)
+    if (dateString.includes('-')) {
+      return new Date(dateString);
+    }
+
+    // Formato timestamp de Excel
+    if (!isNaN(dateString)) {
+      return new Date((dateString - 25569) * 86400 * 1000);
+    }
+
+    return new Date(dateString);
   } catch (error) {
     console.error('Error procesando fecha:', dateString);
     return new Date();
@@ -54,25 +70,43 @@ const processDate = (dateString) => {
  * @returns {Object} - Datos procesados para tapes originales y lista completa de tapes
  */
 const processTapeData = (filteredData) => {
+  console.log("Datos recibidos para procesar tapes:", filteredData);
   // Extraer códigos de eventos en vivo
   const liveCodes = filteredData
-    .filter(item => item.Type === 'Program - Live')
-    .map(item => item.Code);
+    .filter(tapeItem => tapeItem.Type === 'Program - Live')
+    .map(tapeItem => tapeItem.Code);
 
   // Calcular la fecha límite (dos semanas atrás)
   const twoWeeksAgo = new Date();
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
-  // Filtrar tapes que no tengan un código correspondiente en vivo y sean de hace más de dos semanas
-  const originalTapes = filteredData.filter(item => {
-    if (!item.Type?.includes('Program - Tape')) return false;
-    if (liveCodes.includes(item.Code)) return false;
+  // Filtrar tapes que no tengan un código correspondiente en vivo
+  const originalTapes = filteredData.filter(tapeItem => {
+    if (!tapeItem.Type?.includes('Program - Tape')) {
+      console.log("Item descartado - no es Tape:", tapeItem.Type);
+      return false;
+    }
 
-    // Verificar la antigüedad del tape
-    const tapeDate = processDate(item.Date);
-    return tapeDate => twoWeeksAgo;
+    if (liveCodes.includes(tapeItem.Code)) {
+      console.log("Item descartado - tiene código Live:", tapeItem.Code);
+      return false;
+    }
+
+    if (!tapeItem.Date) {
+      console.log("Item descartado - sin fecha:", tapeItem.Code);
+      return false;
+    }
+
+    const tapeDate = processDate(tapeItem.Date);
+    if (tapeDate > twoWeeksAgo) {
+      console.log("Item descartado - muy reciente:", tapeItem.Date);
+      return false;
+    }
+
+    return true;
   });
 
+  console.log("Tapes originales encontrados:", originalTapes);
   // Agrupar por fecha y hora
   const groupedByHourAndFeed = originalTapes.reduce((acc, item) => {
     if (!item.Date) return acc;
@@ -217,7 +251,7 @@ const IngestDashboard = () => {
   const [fileName, setFileName] = useState('');  */
 
 
-  //Función para manejar la carga de archivos
+  //Función para manejar la carga de archivos execel 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -232,11 +266,20 @@ const IngestDashboard = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      console.log("Datos cargados desde Excel:", jsonData);
+
+      // Verificar que los datos tienen las columnas esperadas
+      if (jsonData.length > 0) {
+        console.log("Primer registro:", jsonData[0]);
+        console.log("Columnas disponibles:", Object.keys(jsonData[0]));
+      }
+
       setDashboardData(jsonData);
       localStorage.setItem('ingestDashboardData', JSON.stringify(jsonData));
     };
     reader.readAsArrayBuffer(file);
   };
+
 
   // Estado para controlar la visibilidad del PDF
   const pdfRef = useRef();
@@ -519,9 +562,17 @@ const IngestDashboard = () => {
   // Colores para los gráficos  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
   const COLORS = ['#979a9a', '#ffc107', '#3399f3', '#bb33ff', '#3B5249', '#59A5D8'];
 
+
+  // console.log("Datos cargados:", dashboardData);
+  // console.log("Datos filtrados:", filteredData);
+  //console.log("Tapes procesados:", tapeData, tapesList);
+
+
   return (
+
+
     <Container fluid className="ingest-dashboard" ref={pdfRef}>
-  
+
 
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
@@ -580,11 +631,11 @@ const IngestDashboard = () => {
         />
 
         {fileName && (
-          <Badge bg="info" className="ms-20" > 
+          <Badge bg="info" className="ms-20" >
             {fileName}
           </Badge>
         )}
-      
+
       </div>
 
       <Collapse in={showFilters}>
@@ -963,50 +1014,95 @@ const IngestDashboard = () => {
                   className="mb-3"
                 >
                   <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Graphic</span>}>
-                    <ResponsiveContainer width="100%" height={400}>
-                      <BarChart
-                        dashboardData={filteredTapeData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="hour"
-                          label={{
-                            value: 'Hora del día',
-                            position: 'insideBottom',
-                            offset: -5
-                          }}
-                        />
-                        <YAxis
-                          label={{
-                            value: 'Number of Tapes',
-                            angle: -90,
-                            position: 'insideLeft',
-                            offset: -5
-                          }}
-                        />
-                        <Tooltip
-                          formatter={(value, name) => [`${value} Tapes`, name]}
-                          itemSorter={(item) => -item.value}
-                        />
-                        <Legend />
-                        {(selectedFeeds.length > 0 ? selectedFeeds : tapeFeeds).map((feed, index) => (
-                          <Bar
-                            key={feed}
-                            dataKey={feed}
-                            name={feed}
-                            stackId="stack"
-                            fill={COLORS[index % COLORS.length]}
-                          />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div className="text-center mt-3">
-                      <small className="text-muted">
-                        Display {filteredTapeData.length} hours from the selected time range
-                        Total progam tape: {tapesList.length}
-                      </small>
-                    </div>
+                    <Row className="g-4 mb-5">
+                      <Col xl={12}>
+                        <Card className="chart-card">
+                          <Card.Header className="chart-header">
+                            <div className="d-flex justify-content-between align-items-center flex-wrap">
+                              <div>
+                                <FiFilm className="me-2" />
+                                Program Tapes
+                              </div>
+                              <div className="d-flex gap-3 align-items-center">
+                                <div className="d-flex align-items-center">
+                                  <small className="me-2">Time range:</small>
+                                  <div className="d-flex gap-2 align-items-center">
+                                    <Form.Select
+                                      size="sm"
+                                      value={hourRange.start}
+                                      onChange={(e) => setHourRange({ ...hourRange, start: parseInt(e.target.value) })}
+                                      style={{ width: '80px' }}
+                                    >
+                                      {Array.from({ length: 24 }, (_, i) => (
+                                        <option key={`start-${i}`} value={i}>{`${i}:00`}</option>
+                                      ))}
+                                    </Form.Select>
+                                    <span>-</span>
+                                    <Form.Select
+                                      size="sm"
+                                      value={hourRange.end}
+                                      onChange={(e) => setHourRange({ ...hourRange, end: parseInt(e.target.value) })}
+                                      style={{ width: '80px' }}
+                                    >
+                                      {Array.from({ length: 24 }, (_, i) => (
+                                        <option key={`end-${i}`} value={i}>{`${i}:00`}</option>
+                                      ))}
+                                    </Form.Select>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </Card.Header>
+                          <Card.Body>
+                            <ResponsiveContainer width="100%" height={400}>
+                              <BarChart
+                                data={filteredTapeData}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis
+                                  dataKey="hour"
+                                  label={{
+                                    value: 'Hour of day',
+                                    position: 'insideBottom',
+                                    offset: -5
+                                  }}
+                                />
+                                <YAxis
+                                  label={{
+                                    value: 'Number of Tapes',
+                                    angle: -90,
+                                    position: 'insideLeft',
+                                    offset: -5
+                                  }}
+                                />
+                                <Tooltip
+                                  formatter={(value, name) => [`${value} Tapes`, name]}
+                                  itemSorter={(item) => -item.value}
+                                />
+                                <Legend />
+                                {tapeFeeds.map((feed, index) => (
+                                  <Bar
+                                    key={feed}
+                                    dataKey={feed}
+                                    name={feed}
+                                    stackId="stack"
+                                    fill={COLORS[index % COLORS.length]}
+                                  />
+                                ))}
+                              </BarChart>
+                            </ResponsiveContainer>
+                            <div className="text-center mt-3">
+                              <small className="text-muted">
+                                Showing {filteredTapeData.length} hours from the selected time range |
+                                Total program tapes: {tapesList.length}
+                              </small>
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
+
                   </Tab>
                   <Tab eventKey="details" title={<span><FiList className="me-2" />Table</span>}>
                     <Row className="g-4">
