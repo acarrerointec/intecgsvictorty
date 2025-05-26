@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab
+  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -244,7 +244,32 @@ const IngestDashboard = () => {
     showCode: ''
   });
 
+  // Estado para controlar la visibilidad del modal de detalles del programa
+  const [showModal, setShowModal] = useState(false);
+  const [selectedPrograms, setSelectedPrograms] = useState([]); // Cambiamos a array
 
+
+
+
+  // Estado para controlar la visibilidad del PDF
+  const pdfRef = useRef();
+
+  // Estado para controlar las pestañas de los tapes originales
+  const [tapeTabKey, setTapeTabKey] = useState('chart');
+
+  // Estados para el control del rango horario y feeds seleccionados
+  const [hourRange, setHourRange] = useState({ start: 0, end: 23 });
+  const [selectedFeeds, setSelectedFeeds] = useState([]);
+
+  // Obtener la fecha inicial (un mes atrás) y final (actual)
+  const initialStartDate = new Date();
+  initialStartDate.setMonth(initialStartDate.getMonth() - 1);
+
+  const [tempDateRange, setTempDateRange] = useState([{
+    startDate: initialStartDate,
+    endDate: new Date(),
+    key: 'selection'
+  }]);
 
   /*Estado para los datos cargados del excel
   const [dashboardData, setDashboardData] = useState([]);
@@ -279,10 +304,6 @@ const IngestDashboard = () => {
     };
     reader.readAsArrayBuffer(file);
   };
-
-
-  // Estado para controlar la visibilidad del PDF
-  const pdfRef = useRef();
 
   // Función para generar el PDF
   const handleExportPDF = async () => {
@@ -344,26 +365,7 @@ const IngestDashboard = () => {
       alert('Error al generar el PDF. Por favor intenta nuevamente.');
     }
   };
-
-
-
-  // Estado para controlar las pestañas de los tapes originales
-  const [tapeTabKey, setTapeTabKey] = useState('chart');
-
-  // Estados para el control del rango horario y feeds seleccionados
-  const [hourRange, setHourRange] = useState({ start: 0, end: 23 });
-  const [selectedFeeds, setSelectedFeeds] = useState([]);
-
   // Obtener la fecha inicial (un mes atrás) y final (actual)
-  const initialStartDate = new Date();
-  initialStartDate.setMonth(initialStartDate.getMonth() - 1);
-
-  const [tempDateRange, setTempDateRange] = useState([{
-    startDate: initialStartDate,
-    endDate: new Date(),
-    key: 'selection'
-  }]);
-
   const [dateRange, setDateRange] = useState([{
     startDate: initialStartDate,
     endDate: new Date(),
@@ -385,19 +387,6 @@ const IngestDashboard = () => {
     return Array.from(types);
   }, [dashboardData]);
 
-
-  /*
-  const uniqueTypes = useMemo(() => {
-    const types = new Set();
-    data.forEach(item => {
-      if (item.Type) {
-        const mainType = item.Type.split(' - ')[0];
-        types.add(mainType);
-      }
-    });
-    return Array.from(types);
-  }, [data]);
-*/
 
   // Extraer tipos de programas únicos para el nuevo selector
   const uniqueProgramTypes = useMemo(() => {
@@ -572,7 +561,69 @@ const IngestDashboard = () => {
 
 
     <Container fluid className="ingest-dashboard" ref={pdfRef}>
-
+      {/* Modal de Detalles */}
+<Modal show={showModal} onHide={() => setShowModal(false)} size="xl" scrollable>
+  <Modal.Header closeButton className="bg-light">
+    <Modal.Title>
+      <FiClock className="me-2" />
+      Program Tapes - {selectedPrograms[0]?.Date ? `${new Date(selectedPrograms[0].Date).getHours()}:00` : ''}h
+      <Badge bg="info" className="ms-3">
+        {selectedPrograms.length} {selectedPrograms.length === 1 ? 'tape' : 'tapes'}
+      </Badge>
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Table striped bordered hover responsive>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Type</th>
+          <th>Date</th>
+          <th>Duration</th>
+          <th>Feed</th>
+          <th>Status</th>
+          <th>EDM QC</th>
+          <th>Tedial</th>
+        </tr>
+      </thead>
+      <tbody>
+        {selectedPrograms.map((program, index) => (
+          <tr key={index}>
+            <td>{program.Code}</td>
+            <td>{program[" Description"]}</td>
+            <td>{program.Type}</td>
+            <td>{new Date(program.Date).toLocaleString()}</td>
+            <td>{program.Duration}</td>
+            <td>{program.Feed || 'N/A'}</td>
+            <td>
+              <Badge bg={
+                program.Status === "Ready for Distribution" ? "success" :
+                program.Status === "Ready for QC" ? "info" :
+                program.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+              }>
+                {program.Status}
+              </Badge>
+            </td>
+            <td>{program['Edm Qc'] ? <FiCheck className="text-success" /> : <FiX className="text-danger" />}</td>
+            <td>{program.Tedial ? <FiCheck className="text-success" /> : <FiX className="text-danger" />}</td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+    
+    {selectedPrograms.length === 0 && (
+      <div className="text-center py-4">
+        <FiXCircle className="display-6 text-muted mb-3" />
+        <p className="text-muted">No tapes found for this time slot</p>
+      </div>
+    )}
+  </Modal.Body>
+  <Modal.Footer className="bg-light">
+    
+    
+  </Modal.Footer>
+</Modal>
 
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
@@ -936,6 +987,334 @@ const IngestDashboard = () => {
         </Col>
       </Row>
 
+
+      {tapeData.length > 0 && (
+        <Row className="g-4 mb-5">
+          <Col xl={12}>
+            <Card className="chart-card">
+              <Card.Header className="chart-header">
+                <div className="d-flex justify-content-between align-items-center flex-wrap">
+                  <div>
+                    <FiFilm className="me-2" />
+                    Program Tapes
+                  </div>
+                  <div className="d-flex gap-3 align-items-center">
+                    <div className="d-flex align-items-center">
+                      <small className="me-2">Time range:</small>
+                      <div className="d-flex gap-2 align-items-center">
+                        <Form.Select
+                          size="sm"
+                          value={hourRange.start}
+                          onChange={(e) => setHourRange({ ...hourRange, start: parseInt(e.target.value) })}
+                          style={{ width: '80px' }}
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={`start-${i}`} value={i}>{`${i}:00`}</option>
+                          ))}
+                        </Form.Select>
+                        <span>-</span>
+                        <Form.Select
+                          size="sm"
+                          value={hourRange.end}
+                          onChange={(e) => setHourRange({ ...hourRange, end: parseInt(e.target.value) })}
+                          style={{ width: '80px' }}
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={`end-${i}`} value={i}>{`${i}:00`}</option>
+                          ))}
+                        </Form.Select>
+                      </div>
+                    </div>
+
+                    <div className="d-flex align-items-center feed-filter">
+                      <small className="me-2">Feeds:</small>
+                      <div className="d-flex flex-wrap gap-1 feed-badges">
+                        {tapeFeeds.map(feed => (
+                          <Badge
+                            key={feed}
+                            bg={selectedFeeds.includes(feed) ? "primary" : "secondary"}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              if (selectedFeeds.includes(feed)) {
+                                setSelectedFeeds(selectedFeeds.filter(f => f !== feed));
+                              } else {
+                                setSelectedFeeds([...selectedFeeds, feed]);
+                              }
+                            }}
+                          >
+                            {feed}
+                          </Badge>
+                        ))}
+                        {selectedFeeds.length > 0 && (
+                          <Badge
+                            bg="danger"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedFeeds([])}
+                          >
+                            <FiX size={12} />
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card.Header>
+              <Card.Body>
+                <Tabs
+                  activeKey={tapeTabKey}
+                  onSelect={(k) => setTapeTabKey(k)}
+                  className="mb-3"
+                >
+                  <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Graphic</span>}>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <BarChart
+                        data={filteredTapeData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        onClick={(e) => {
+                          if (e.activePayload && e.activePayload.length > 0) {
+      const clickedHour = parseInt(e.activePayload[0].payload.hour);
+      const clickedFeed = e.activePayload[0].name;
+      
+      // Filtrar todos los programas que coincidan con la hora y feed
+      const matchingPrograms = tapesList.filter(tape => {
+        const tapeDate = processDate(tape.Date);
+        return (
+          tapeDate.getHours() === clickedHour && 
+          (tape.Feed || 'Sin Feed') === clickedFeed
+        );
+      });
+      
+      // Ordenar por fecha (más reciente primero)
+      matchingPrograms.sort((a, b) => 
+        new Date(b.Date) - new Date(a.Date)
+      );
+      
+      setSelectedPrograms(matchingPrograms);
+      setShowModal(true);
+    }
+  }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="hour"
+                          label={{
+                            value: 'Hora del día',
+                            position: 'insideBottom',
+                            offset: -5
+                          }}
+                        />
+                        <YAxis
+                          label={{
+                            value: 'Number of Tapes',
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: -5
+                          }}
+                        />
+
+
+      <Tooltip
+        content={({ active, payload, label }) => {
+          if (active && payload && payload.length) {
+            const hour = parseInt(label);
+            const feed = payload[0].name;
+            const count = payload[0].value;
+
+            return (
+              <div className="custom-tooltip">
+                <p className="label">{`${hour}:00 - ${feed}`}</p>
+                <p className="desc">{count} {count === 1 ? 'tape' : 'tapes'}</p>
+                <p className="tip">Click para ver detalles</p>
+              </div>
+            );
+          }
+          return null;
+        }}
+      />     
+                    
+
+                        <Legend />
+                        {(selectedFeeds.length > 0 ? selectedFeeds : tapeFeeds).map((feed, index) => (
+                          <Bar
+                            key={feed}
+                            dataKey={feed}
+                            name={feed}
+                            stackId="stack"
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="text-center mt-3">
+                      <small className="text-muted">
+                        Display {filteredTapeData.length} hours from the selected time range
+                        Total progam tape: {tapesList.length}
+                      </small>
+                    </div>
+                  </Tab>
+                  <Tab eventKey="details" title={<span><FiList className="me-2" />Table</span>}>
+                    <Row className="g-4">
+                      <Col md={12}>
+                        <div className="mb-4">
+                          <h6 className="mb-3">Distribution by Feed</h6>
+                          <div className="d-flex flex-wrap gap-2">
+                            {tapeFeeds.map((feed, index) => {
+                              const count = tapesList.filter(tape => (tape.Feed || 'Sin Feed') === feed).length;
+                              return (
+                                <Badge
+                                  key={feed}
+                                  bg="light"
+                                  text="dark"
+                                  className="p-2"
+                                  style={{ borderLeft: `4px solid ${COLORS[index % COLORS.length]}` }}
+                                >
+                                  {feed}: {count} tapes
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Table striped bordered responsive className="tape-details-table">
+                          <thead>
+                            <tr>
+                              <th>Code</th>
+                              <th>Description</th>
+                              <th>Type</th>
+                              <th>Feed</th>
+                              <th>Date</th>
+                              <th>Duration</th>
+                              <th>Status</th>
+                              <th>EDM QC</th>
+
+                              <th>Edm Qc</th>
+                              <th>Tedial</th>
+                              <th>Origen</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tapesList.map((tape, idx) => (
+                              <tr
+                                key={idx}
+                                onClick={() => {
+                                  setSelectedProgram(tape);
+                                  setShowModal(true);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <td>{tape.Code}</td>
+                                <td>{tape[" Description"]}</td>
+                                <td>{tape.Type}</td>
+                                <td>{tape.Date}</td>
+                                <td>{tape.Duration}</td>
+                                <td>{tape.Feed}</td>
+                                <td>
+                                  <Badge bg={
+                                    tape.Status === "Ready for Distribution" ? "success" :
+                                      tape.Status === "Ready for QC" ? "info" :
+                                        tape.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                                  }>
+                                    {tape.Status}
+                                  </Badge>
+                                </td>
+                                <td>{tape['Edm Qc'] ? <FiCheck /> : <FiX />}</td>
+                                <td>{tape.Tedial ? <FiCheck /> : <FiX />}</td>
+                                <td>{tape.Origin}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                        {tapesList.length === 0 && (
+                          <div className="text-center py-4">
+                            <FiXCircle className="display-6 text-muted mb-3" />
+                            <p className="text-muted">No program tapes were found with the current filters</p>
+                          </div>
+                        )}
+                      </Col>
+                    </Row>
+                  </Tab>
+                </Tabs>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Accordion activeKey={showDetails ? 'details' : null}>
+        <Card className="programs-accordion">
+          <Accordion.Item eventKey="details">
+            <Card.Header className="details-header">
+              <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
+                <h5 className="mb-0">Table of Contents</h5>
+                <Badge bg="dark" pill>{filteredData.length}</Badge>
+              </Stack>
+            </Card.Header>
+            <Accordion.Body>
+              <Table striped bordered hover responsive>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Feed</th>
+                    <th>Date</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th>EDM QC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.map((item, index) => (
+                    <tr
+                      key={index}
+                      onClick={() => {
+                        setSelectedProgram(item);
+                        setShowModal(true);
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>{item.Code}</td>
+                      <td>{item[" Description"]}</td>
+                      <td>{item.Type}</td>
+                      <td>{item.Feed}</td>
+                      <td>{item.Date}</td>
+                      <td>{item.Duration}</td>
+                      <td>
+                        <Badge bg={
+                          item.Status === "Ready for Distribution" ? "success" :
+                            item.Status === "Ready for QC" ? "info" :
+                              item.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                        }>
+                          {item.Status}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Stack direction="horizontal" gap={2}>
+                          {item['Edm Qc'] && <Badge bg="danger" title="EDM QC">QC</Badge>}
+                        </Stack>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              {!filteredData.length && (
+                <div className="text-center py-4">
+                  <FiXCircle className="display-6 text-muted mb-3" />
+                  <p className="text-muted">No content found with current filters</p>
+                </div>
+              )}
+            </Accordion.Body>
+          </Accordion.Item>
+        </Card>
+      </Accordion>
+    </Container>
+  );
+};
+
+
+export default IngestDashboard;
+
+
+{/*
       {tapeData.length > 0 && (
         <Row className="g-4 mb-5">
           <Col xl={12}>
@@ -1126,6 +1505,9 @@ const IngestDashboard = () => {
                             })}
                           </div>
                         </div>
+
+                        
+                        
                         <Table striped bordered responsive className="tape-details-table">
                           <thead>
                             <tr>
@@ -1250,4 +1632,4 @@ const IngestDashboard = () => {
   );
 };
 
-export default IngestDashboard;
+*/}
