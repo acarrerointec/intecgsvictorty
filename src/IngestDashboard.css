@@ -557,3 +557,70 @@
   font-style: italic;
   margin-top: 5px;
 }
+
+/* Spiner Styles */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.loading-spinner {
+  text-align: center;
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.loading-text {
+  margin-top: 15px;
+  font-weight: bold;
+  color: #333;
+}
+
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Carga de archivos  excel*/
+
+.file-upload-btn .btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+.file-upload-btn .btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+.file-upload-btn .badge {
+  font-size: 0.9rem;
+  padding: 0.5em 0.8em;
+}
+
+.file-upload-btn .btn-link {
+  text-decoration: none;
+}
+
+/* Boton Aplicar Fecha */
+.apply-date-btn {
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-border {
+  vertical-align: middle;
+}

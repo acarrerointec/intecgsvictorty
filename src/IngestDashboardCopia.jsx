@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal
+  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal, Spinner
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -328,37 +328,85 @@ const IngestDashboard = () => {
   }]);
 
 
+  // Estado para el rango de fechas disponibles
 
+  const [availableDateRange, setAvailableDateRange] = useState({
+    minDate: null,
+    maxDate: null
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
 
   //Función para manejar la carga de archivos execel 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    setIsLoading(true); // Activar spinner
+
     setFileName(file.name);
     localStorage.setItem('ingestDashboardFileName', file.name);
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log("Datos cargados desde Excel:", jsonData);
+        // Calcular fechas mínima y máxima
+        const dates = jsonData
+          .map(item => processDate(item.Date))
+          .filter(date => !isNaN(date.getTime()));
 
-      // Verificar que los datos tienen las columnas esperadas
-      if (jsonData.length > 0) {
-        console.log("Primer registro:", jsonData[0]);
-        console.log("Columnas disponibles:", Object.keys(jsonData[0]));
+        if (dates.length > 0) {
+          const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
+          const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+
+          setAvailableDateRange({
+            minDate,
+            maxDate
+          });
+
+          setDateRange([{
+            startDate: minDate,
+            endDate: maxDate,
+            key: 'selection'
+          }]);
+          setTempDateRange([{
+            startDate: minDate,
+            endDate: maxDate,
+            key: 'selection'
+          }]);
+        }
+
+        setDashboardData(jsonData);
+        localStorage.setItem('ingestDashboardData', JSON.stringify(jsonData));
+      } catch (error) {
+        console.error('Error processing file:', error);
+        alert('Error processing file. Please check the file format.');
+      } finally {
+        setIsLoading(false); // Desactivar spinner
       }
-
-      setDashboardData(jsonData);
-      localStorage.setItem('ingestDashboardData', JSON.stringify(jsonData));
     };
     reader.readAsArrayBuffer(file);
   };
-
+  /*
+    const handleApplyDate = () => {
+      setIsLoading(true); // Activar spinner
+      setTimeout(() => { // Usamos setTimeout para permitir que la UI se actualice
+        if (!tempDateRange[0]?.startDate || !tempDateRange[0]?.endDate) {
+          setIsLoading(false);
+          return;
+        }
+  
+        // Validaciones de fecha...
+        setDateRange([...tempDateRange]);
+        setIsLoading(false); // Desactivar spinner
+      }, 50);
+    };
+  */
   // Función para generar el PDF
   const handleExportPDF = async () => {
     try {
@@ -589,8 +637,38 @@ const IngestDashboard = () => {
 
   }), [filteredData, tapesList]);
 
+
+  // Estado para el rango de fechas temporal
+  const [isApplyingDate, setIsApplyingDate] = useState(false);
   const handleApplyDate = () => {
-    setDateRange([...tempDateRange]);
+    setIsApplyingDate(true); // Activar spinner
+
+    // Simulamos un pequeño delay para que el spinner sea visible
+    setTimeout(() => {
+      if (!tempDateRange[0]?.startDate || !tempDateRange[0]?.endDate) {
+        setIsApplyingDate(false);
+        return;
+      }
+
+      // Validar que las fechas estén dentro del rango disponible
+      const startDate = new Date(tempDateRange[0].startDate);
+      const endDate = new Date(tempDateRange[0].endDate);
+
+      if (availableDateRange.minDate && startDate < availableDateRange.minDate) {
+        alert(`Start date cannot be before ${availableDateRange.minDate.toLocaleDateString()}`);
+        setIsApplyingDate(false);
+        return;
+      }
+
+      if (availableDateRange.maxDate && endDate > availableDateRange.maxDate) {
+        alert(`End date cannot be after ${availableDateRange.maxDate.toLocaleDateString()}`);
+        setIsApplyingDate(false);
+        return;
+      }
+
+      setDateRange([...tempDateRange]);
+      setIsApplyingDate(false); // Desactivar spinner
+    }, 500); // Pequeño delay para mejor experiencia de usuario
   };
 
   // Colores para los gráficos  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
@@ -606,6 +684,18 @@ const IngestDashboard = () => {
 
 
     <Container fluid className="ingest-dashboard" ref={pdfRef}>
+      {/* Spinner de carga */}
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <div className="loading-text">Processing data...</div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Detalles PROGRAM TAPES */}
 
       <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" scrollable>
@@ -809,12 +899,46 @@ const IngestDashboard = () => {
           style={{ display: 'none' }}
         />
 
-        {fileName && (
-          <Badge bg="info" className="ms-20" >
-            {fileName}
-          </Badge>
+        {fileName ? (
+          <div className="d-flex align-items-center gap-2">
+            <Badge bg="info" className="d-flex align-items-center">
+              <span>{fileName}</span>
+              <Button
+                variant="link"
+                className="text-white p-0 ms-2"
+                onClick={() => {
+                  setFileName('');
+                  setDashboardData([]);
+                  setAvailableDateRange({ minDate: null, maxDate: null });
+                  localStorage.removeItem('ingestDashboardData');
+                  localStorage.removeItem('ingestDashboardFileName');
+                  document.getElementById('file-upload').value = ''; // Resetear el input file
+                }}
+                title="Remove file"
+              >
+                <FiX size={16} />
+              </Button>
+            </Badge>
+            <Button
+              as="label"
+              htmlFor="file-upload"
+              variant="outline-secondary"
+              size="sm"
+            >
+              <FiUpload className="me-1" />
+              Change File
+            </Button>
+          </div>
+        ) : (
+          <Button
+            as="label"
+            htmlFor="file-upload"
+            variant="outline-success"
+          >
+            <FiUpload className="me-2" />
+            Upload Excel
+          </Button>
         )}
-
       </div>
 
       <Collapse in={showFilters}>
@@ -830,23 +954,44 @@ const IngestDashboard = () => {
                         <DateRangePicker
                           ranges={tempDateRange}
                           onChange={ranges => setTempDateRange([ranges.selection])}
-
                           locale={es}
                           rangeColors={['#2E86AB']}
                           showPreview={false}
                           showDateDisplay={false}
                           editableDateInputs
                           moveRangeOnFirstSelection={false}
-                          direction="horizontal" />
+                          direction="horizontal"
+                          minDate={availableDateRange.minDate}
+                          maxDate={availableDateRange.maxDate}
+                        />
                       </div>
+                      {availableDateRange.minDate && availableDateRange.maxDate && (
+                        <p className="text-muted d-block mt-1">
+                          Available range: {availableDateRange.minDate.toLocaleDateString()} - {availableDateRange.maxDate.toLocaleDateString()}
+                        </p>
+                      )}
+
                       <Button
                         variant="outline-primary"
                         onClick={handleApplyDate}
-
                         className="mt-2 w-60 apply-date-btn"
+                        disabled={isApplyingDate} // Deshabilitar mientras carga
                       >
-                        <FiCheck className="me-2" /> Apply Date
+                        {isApplyingDate ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Applying...
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="me-2" /> Apply Date
+                          </>
+                        )}
                       </Button>
+
+
+
+
                     </div>
                   </FilterControl>
                 </Col>

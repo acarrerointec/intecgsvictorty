@@ -15,7 +15,7 @@ import IngestDashboardCopia from "./IngestDashboardCopia";
 
 
 const Sidebar = () => {
-  const [activeComponent, setActiveComponent] = useState("ExecutiveDashboard");
+  const [activeComponent, setActiveComponent] = useState("IngestDashboard"); // Componente activo por defecto
   const [isSidebarVisible, setIsSidebarVisible] = useState(true); // Estado para mostrar/ocultar el Sidebar
 
   return (
@@ -203,8 +203,9 @@ const Sidebar = () => {
 
       {/* Contenedor para los componentes dinámicos */}
       <div className="flex-grow-1" style={{ backgroundColor: '#1E1E1E', height: '100vh', overflowY: 'auto' }}>
+         {activeComponent === "IngestDashboard" && <IngestDashboardCopia />}
         {activeComponent === "ExecutiveDashboard" && <ExecutiveDashboard />}
-        {activeComponent === "IngestDashboard" && <IngestDashboardCopia />}
+       
       
       </div>
     </div>
