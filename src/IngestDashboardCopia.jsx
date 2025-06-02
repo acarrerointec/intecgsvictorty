@@ -867,30 +867,11 @@ const IngestDashboard = () => {
               Table
             </Button>
 
-            <Button
-              as="label"
-              htmlFor="file-upload"
-              variant="outline-success"
-              className="me-2"
-            >
-
-              <FiUpload className="me-2" />
-              Upload Excel
-            </Button>
-
-            <Button variant="danger" onClick={handleExportPDF}>
-              <FiDownload className="me-2" />
-              Export PDF
-            </Button>
-
-
-          </Stack>
-        </Col>
-      </Row>
 
 
 
-      <div className="file-upload-btn mb-4 align-items-center">
+
+      <div className="file-upload-btn align-items-center">
         <input
           id="file-upload"
           type="file"
@@ -940,6 +921,20 @@ const IngestDashboard = () => {
           </Button>
         )}
       </div>
+      
+
+            <Button variant="danger" onClick={handleExportPDF}>
+              <FiDownload className="me-2" />
+              Export PDF
+            </Button>
+
+
+          </Stack>
+        </Col>
+      </Row>
+
+
+
 
       <Collapse in={showFilters}>
         <div>
@@ -966,9 +961,9 @@ const IngestDashboard = () => {
                         />
                       </div>
                       {availableDateRange.minDate && availableDateRange.maxDate && (
-                        <p className="text-muted d-block mt-1">
+                        <h5 className="text-muted d-block mt-1" color='black'>
                           Available range: {availableDateRange.minDate.toLocaleDateString()} - {availableDateRange.maxDate.toLocaleDateString()}
-                        </p>
+                        </h5>
                       )}
 
                       <Button
@@ -988,10 +983,6 @@ const IngestDashboard = () => {
                           </>
                         )}
                       </Button>
-
-
-
-
                     </div>
                   </FilterControl>
                 </Col>
