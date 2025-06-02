@@ -113,16 +113,10 @@ const processTapeData = (filteredData) => {
 
     const date = processDate(item.Date);
     const hour = date.getHours();
-    const feed = item.Feed || 'Sin Feed';
+    const feed = item.Feed ? item.Feed.toString() : 'Sin Feed';
 
-    // Crear clave para hora y feed
-    if (!acc[hour]) {
-      acc[hour] = {};
-    }
-
-    if (!acc[hour][feed]) {
-      acc[hour][feed] = [];
-    }
+    if (!acc[hour]) acc[hour] = {};
+    if (!acc[hour][feed]) acc[hour][feed] = [];
 
     acc[hour][feed].push(item);
     return acc;
@@ -217,6 +211,7 @@ FilterControl.propTypes = {
 
 
 
+
 const IngestDashboard = () => {
 
 
@@ -274,6 +269,43 @@ const IngestDashboard = () => {
       setShowTypeModal(true);
     }
   };
+
+
+
+  // Manejador de clics en las barras del gráfico de tapes 
+  const handleTapeBarClick = (e) => {
+    if (e.activePayload && e.activePayload.length > 0) {
+      const clickedHour = parseInt(e.activePayload[0].payload.hour);
+
+      // Filtrar TODOS los programas de esa hora, sin importar el feed
+      const matchingPrograms = tapesList.filter(tape => {
+        if (!tape.Date) return false;
+
+        const tapeDate = processDate(tape.Date);
+        const tapeHour = tapeDate.getHours();
+
+        return tapeHour === clickedHour;
+      });
+
+      // Ordenar por feed y luego por fecha (más reciente primero)
+      matchingPrograms.sort((a, b) => {
+        // Primero ordenar por feed
+        const feedA = a.Feed || 'Sin Feed';
+        const feedB = b.Feed || 'Sin Feed';
+        if (feedA < feedB) return -1;
+        if (feedA > feedB) return 1;
+
+        // Si mismo feed, ordenar por fecha
+        const dateA = processDate(a.Date);
+        const dateB = processDate(b.Date);
+        return dateB - dateA;
+      });
+
+      setSelectedPrograms(matchingPrograms);
+      setShowModal(true);
+    }
+  };
+
 
   // Estado para controlar la visibilidad del PDF
   const pdfRef = useRef();
@@ -574,56 +606,80 @@ const IngestDashboard = () => {
 
 
     <Container fluid className="ingest-dashboard" ref={pdfRef}>
-      {/* Modal de Detalles */}
+      {/* Modal de Detalles PROGRAM TAPES */}
+
       <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" scrollable>
         <Modal.Header closeButton className="bg-light">
           <Modal.Title>
             <FiClock className="me-2" />
-            Program Tapes - {selectedPrograms[0]?.Date ? `${new Date(selectedPrograms[0].Date).getHours()}:00` : ''}h
+            Program Tapes - {selectedPrograms[0]?.Date ?
+              `${new Date(selectedPrograms[0].Date).getHours()}:00` : ''}h
             <Badge bg="info" className="ms-3">
               {selectedPrograms.length} {selectedPrograms.length === 1 ? 'tape' : 'tapes'}
             </Badge>
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Description</th>
-                <th>Type</th>
-                <th>Date</th>
-                <th>Duration</th>
-                <th>Feed</th>
-                <th>Status</th>
-                <th>EDM QC</th>
-                <th>Tedial</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedPrograms.map((program, index) => (
-                <tr key={index}>
-                  <td>{program.Code}</td>
-                  <td>{program[" Description"]}</td>
-                  <td>{program.Type}</td>
-                  <td>{new Date(program.Date).toLocaleString()}</td>
-                  <td>{program.Duration}</td>
-                  <td>{program.Feed || 'N/A'}</td>
-                  <td>
-                    <Badge bg={
-                      program.Status === "Ready for Distribution" ? "success" :
-                        program.Status === "Ready for QC" ? "info" :
-                          program.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
-                    }>
-                      {program.Status}
-                    </Badge>
-                  </td>
-                  <td>{program['Edm Qc'] ? <FiCheck className="text-success" /> : <FiX className="text-danger" />}</td>
-                  <td>{program.Tedial ? <FiCheck className="text-success" /> : <FiX className="text-danger" />}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          {/* Agrupar por feed */}
+          {Array.from(new Set(selectedPrograms.map(p => p.Feed || 'Sin Feed'))).map(feed => {
+            const feedPrograms = selectedPrograms.filter(p => (p.Feed || 'Sin Feed') === feed);
+
+            return (
+              <div key={feed} className="mb-4">
+                <h6 className="d-flex align-items-center gap-2">
+                  <Badge bg="secondary">{feed}</Badge>
+                  <small className="text-muted">
+                    {feedPrograms.length} {feedPrograms.length === 1 ? 'tape' : 'tapes'}
+                  </small>
+                </h6>
+
+                <Table striped bordered hover responsive className="mb-4">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Description</th>
+                      <th>Date/Time</th>
+                      <th>Duration</th>
+                      <th>Status</th>
+                      <th>QC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {feedPrograms.map((program, index) => (
+                      <tr key={`${feed}-${index}`}>
+                        <td>{program.Code}</td>
+                        <td>{program[" Description"]}</td>
+                        <td>
+                          {new Date(program.Date).toLocaleString([], {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td>{program.Duration}</td>
+                        <td>
+                          <Badge bg={
+                            program.Status === "Ready for Distribution" ? "success" :
+                              program.Status === "Ready for QC" ? "info" :
+                                program.Status?.toLowerCase().includes("placeholder") ? "warning" : "secondary"
+                          }>
+                            {program.Status}
+                          </Badge>
+                        </td>
+                        <td>
+                          {program['Edm Qc'] ?
+                            <FiCheck className="text-success" /> :
+                            <FiX className="text-danger" />}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            );
+          })}
 
           {selectedPrograms.length === 0 && (
             <div className="text-center py-4">
@@ -632,11 +688,8 @@ const IngestDashboard = () => {
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer className="bg-light">
-
-
-        </Modal.Footer>
       </Modal>
+
 
       {/* Modal para Type Program (Live, Tape, Commercial, Promotion, etc.) */}
       <Modal show={showTypeModal} onHide={() => setShowTypeModal(false)} size="xl" scrollable>
@@ -660,7 +713,7 @@ const IngestDashboard = () => {
                 <th>Duration</th>
                 <th>Feed</th>
                 <th>Status</th>
-               
+
                 {clickedType === "Commercial" && <th>Advertiser</th>}
                 {clickedType === "Promotion" && <th>Campaign</th>}
 
@@ -684,7 +737,7 @@ const IngestDashboard = () => {
                       {program.Status}
                     </Badge>
                   </td>
-                 
+
                 </tr>
               ))}
             </tbody>
@@ -946,7 +999,8 @@ const IngestDashboard = () => {
             </Card.Header>
             <Card.Body>
               <ResponsiveContainer width="100%" height={300} className="chart-container">
-                <BarChart data={typeDistribution}
+                <BarChart
+                  data={typeDistribution}
                   onClick={handleTypeBarClick}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
@@ -1126,71 +1180,51 @@ const IngestDashboard = () => {
                     <ResponsiveContainer width="100%" height={400}>
                       <BarChart
                         data={filteredTapeData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        onClick={(e) => {
-                          if (e.activePayload && e.activePayload.length > 0) {
-                            const clickedHour = parseInt(e.activePayload[0].payload.hour);
-                            const clickedFeed = e.activePayload[0].name;
-
-                            // Filtrar todos los programas que coincidan con la hora y feed
-                            const matchingPrograms = tapesList.filter(tape => {
-                              const tapeDate = processDate(tape.Date);
-                              return (
-                                tapeDate.getHours() === clickedHour &&
-                                (tape.Feed || 'Sin Feed') === clickedFeed
-                              );
-                            });
-
-                            // Ordenar por fecha (más reciente primero)
-                            matchingPrograms.sort((a, b) =>
-                              new Date(b.Date) - new Date(a.Date)
-                            );
-
-                            setSelectedPrograms(matchingPrograms);
-                            setShowModal(true);
-                          }
-                        }}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }} // Más espacio en bottom para etiquetas
+                        onClick={handleTapeBarClick}
                       >
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
                         <XAxis
                           dataKey="hour"
                           label={{
-                            value: 'Hora del día',
+                            value: 'Hour of Day',
                             position: 'insideBottom',
-                            offset: -5
+                            offset: -50,
+                            fontSize: 12
                           }}
+                          tick={{ fontSize: 10 }}
                         />
                         <YAxis
                           label={{
                             value: 'Number of Tapes',
                             angle: -90,
                             position: 'insideLeft',
-                            offset: -5
+                            offset: 10,
+                            fontSize: 12
                           }}
                         />
-
 
                         <Tooltip
                           content={({ active, payload, label }) => {
                             if (active && payload && payload.length) {
                               const hour = parseInt(label);
-                              const feed = payload[0].name;
-                              const count = payload[0].value;
+                              const totalTapes = payload.reduce((sum, item) => sum + item.value, 0);
 
                               return (
-                                <div className="custom-tooltip">
-                                  <p className="label">{`${hour}:00 - ${feed}`}</p>
-                                  <p className="desc">{count} {count === 1 ? 'tape' : 'tapes'}</p>
-                                  <p className="tip">Click para ver detalles</p>
+                                <div className="custom-tooltip p-2 bg-white border rounded shadow">
+                                  <p className="fw-bold mb-1">{`${hour}:00 - ${hour + 1}:00`}</p>
+                                  <p className="mb-0">Total tapes: <strong>{totalTapes}</strong></p>
+                                  <small className="text-muted">Click to see details</small>
                                 </div>
                               );
                             }
                             return null;
                           }}
                         />
-
-
-                        <Legend />
+                        <Legend
+                          wrapperStyle={{ paddingTop: '20px' }}
+                          formatter={(value) => <span className="small">{value}</span>}
+                        />
                         {(selectedFeeds.length > 0 ? selectedFeeds : tapeFeeds).map((feed, index) => (
                           <Bar
                             key={feed}
@@ -1198,6 +1232,8 @@ const IngestDashboard = () => {
                             name={feed}
                             stackId="stack"
                             fill={COLORS[index % COLORS.length]}
+                            opacity={0.8}
+                            animationDuration={1500}
                           />
                         ))}
                       </BarChart>
