@@ -624,3 +624,35 @@
 .spinner-border {
   vertical-align: middle;
 }
+
+
+/* Boton para cargar mas archivos excel */
+
+.file-upload-section {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  border: 1px dashed #dee2e6;
+}
+
+.uploaded-files {
+  margin-top: 15px;
+}
+
+.file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+}
+
+.file-badge button {
+  line-height: 1;
+}

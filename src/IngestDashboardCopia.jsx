@@ -214,7 +214,7 @@ FilterControl.propTypes = {
 
 const IngestDashboard = () => {
 
-
+  {/*
   // Guardar datos y nombre de archivo en localStorage al inicializar
   const [dashboardData, setDashboardData] = useState(() => {
     // Cargar datos desde localStorage al inicializar
@@ -225,6 +225,18 @@ const IngestDashboard = () => {
   const [fileName, setFileName] = useState(() => {
     const savedFileName = localStorage.getItem('ingestDashboardFileName');
     return savedFileName || '';
+  });
+
+  */}
+
+  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    const savedFiles = localStorage.getItem('ingestDashboardFiles');
+    return savedFiles ? JSON.parse(savedFiles) : [];
+  });
+
+  const [dashboardData, setDashboardData] = useState(() => {
+    const savedData = localStorage.getItem('ingestDashboardData');
+    return savedData ? JSON.parse(savedData) : [];
   });
 
   // Estado para controlar la visibilidad de los filtros y detalles
@@ -341,6 +353,7 @@ const IngestDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   //Función para manejar la carga de archivos execel 
+  /*
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -395,6 +408,119 @@ const IngestDashboard = () => {
     };
     reader.readAsArrayBuffer(file);
   };
+*/
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setIsLoading(true);
+
+    const newFiles = files.map(file => ({
+      name: file.name,
+      lastModified: file.lastModified,
+      size: file.size
+    }));
+
+    // Verificar duplicados
+    const duplicates = newFiles.filter(newFile =>
+      uploadedFiles.some(existingFile =>
+        existingFile.name === newFile.name &&
+        existingFile.lastModified === newFile.lastModified &&
+        existingFile.size === newFile.size
+      )
+    );
+
+    if (duplicates.length > 0) {
+      alert(`Los siguientes archivos ya fueron cargados: ${duplicates.map(f => f.name).join(', ')}`);
+      setIsLoading(false);
+      return;
+    }
+
+    const promises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            resolve(jsonData);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    });
+
+    Promise.all(promises)
+      .then(results => {
+        // Combinar todos los datos y eliminar duplicados por código
+        const allData = results.flat();
+        const uniqueData = allData.filter((item, index, self) =>
+          index === self.findIndex(t => t.Code === item.Code)
+        );
+
+        // Actualizar estado con los nuevos archivos
+        setUploadedFiles(prev => [...prev, ...newFiles]);
+        localStorage.setItem('ingestDashboardFiles', JSON.stringify([...uploadedFiles, ...newFiles]));
+
+        // Actualizar datos combinados
+        const combinedData = [...dashboardData, ...uniqueData];
+        setDashboardData(combinedData);
+        localStorage.setItem('ingestDashboardData', JSON.stringify(combinedData));
+
+        // Actualizar rango de fechas
+        updateDateRange(combinedData);
+      })
+      .catch(error => {
+        console.error('Error processing files:', error);
+        alert('Error processing files. Please check the file formats.');
+      })
+      .finally(() => {
+        setIsLoading(false);
+        e.target.value = ''; // Resetear el input file
+      });
+  };
+
+  const handleRemoveFile = (fileToRemove) => {
+    // Filtrar para quitar el archivo
+    const updatedFiles = uploadedFiles.filter(file =>
+      !(file.name === fileToRemove.name &&
+        file.lastModified === fileToRemove.lastModified &&
+        file.size === fileToRemove.size)
+    );
+
+    setUploadedFiles(updatedFiles);
+    localStorage.setItem('ingestDashboardFiles', JSON.stringify(updatedFiles));
+
+    // Si no quedan archivos, limpiar los datos
+    if (updatedFiles.length === 0) {
+      setDashboardData([]);
+      localStorage.removeItem('ingestDashboardData');
+      setAvailableDateRange({ minDate: null, maxDate: null });
+    }
+  };
+
+
+  const updateDateRange = (data) => {
+  const dates = data
+    .map(item => processDate(item.Date))
+    .filter(date => !isNaN(date.getTime()));
+
+  if (dates.length > 0) {
+    const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+
+    setAvailableDateRange({ minDate, maxDate });
+    setDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+    setTempDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+  }
+};
+
   /*
     const handleApplyDate = () => {
       setIsLoading(true); // Activar spinner
@@ -772,7 +898,7 @@ const IngestDashboard = () => {
             </tbody>
           </Table>
         </Modal.Body>
-      
+
       </Modal>
 
 
@@ -949,60 +1075,6 @@ const IngestDashboard = () => {
 
 
 
-
-
-            <div className="file-upload-btn align-items-center">
-              <input
-                id="file-upload"
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-
-              {fileName ? (
-                <div className="d-flex align-items-center gap-2">
-                  <Badge bg="info" className="d-flex align-items-center">
-                    <span>{fileName}</span>
-                    <Button
-                      variant="link"
-                      className="text-white p-0 ms-2"
-                      onClick={() => {
-                        setFileName('');
-                        setDashboardData([]);
-                        setAvailableDateRange({ minDate: null, maxDate: null });
-                        localStorage.removeItem('ingestDashboardData');
-                        localStorage.removeItem('ingestDashboardFileName');
-                        document.getElementById('file-upload').value = ''; // Resetear el input file
-                      }}
-                      title="Remove file"
-                    >
-                      <FiX size={16} />
-                    </Button>
-                  </Badge>
-                  <Button
-                    as="label"
-                    htmlFor="file-upload"
-                    variant="outline-secondary"
-                    size="sm"
-                  >
-                    <FiUpload className="me-1" />
-                    Change File
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  as="label"
-                  htmlFor="file-upload"
-                  variant="outline-success"
-                >
-                  <FiUpload className="me-2" />
-                  Upload Excel
-                </Button>
-              )}
-            </div>
-
-
             <Button variant="outline-danger" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
               Export PDF
@@ -1012,6 +1084,53 @@ const IngestDashboard = () => {
               <FiInfo className="me-2" />
               File Format Info
             </Button>
+
+
+            <div className="file-upload-section mb-4">
+              <input
+                id="file-upload"
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+                multiple
+              />
+
+              <Button
+                as="label"
+                htmlFor="file-upload"
+                variant="outline-success"
+                className="me-3"
+              >
+                <FiUpload className="me-2" />
+                Upload Excel Files
+              </Button>
+
+              {uploadedFiles.length > 0 && (
+                <div className="uploaded-files mt-3">
+                  <h6>Uploaded Files:</h6>
+                  <div className="file-list">
+                    {uploadedFiles.map((file, index) => (
+                      <Badge key={index} bg="light" text="dark" className="me-2 mb-2 file-badge">
+                        {file.name}
+                        <Button
+                          variant="link"
+                          className="text-danger p-0 ms-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile(file);
+                          }}
+                          title="Remove file"
+                        >
+                          <FiX size={12} />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
 
 
           </Stack>
