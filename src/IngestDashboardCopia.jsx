@@ -239,6 +239,9 @@ const IngestDashboard = () => {
     showCode: ''
   });
 
+  //Estado para controlar el modal de informacion de estructura de archivo 
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
   // Estado para controlar la visibilidad del modal de detalles del programa
   const [showModal, setShowModal] = useState(false);
   const [selectedPrograms, setSelectedPrograms] = useState([]); // Cambiamos a array
@@ -696,6 +699,83 @@ const IngestDashboard = () => {
         </div>
       )}
 
+      {/* Modal de Información de Formato de Archivo */}
+
+      <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <FiInfo className="me-2" />
+            Excel File Format Requirements
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <h5>Supported Formats:</h5>
+          <ul>
+            <li>.xlsx (Excel Workbook)</li>
+            <li>.xls (Excel 97-2003 Workbook)</li>
+            <li>.csv (Comma Separated Values)</li>
+          </ul>
+
+          <h5 className="mt-4">Required Columns:</h5>
+          <Table striped bordered>
+            <thead>
+              <tr>
+                <th>Column Name</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Code</strong></td>
+                <td>Unique identifier for the content</td>
+              </tr>
+              <tr>
+                <td><strong>Description</strong></td>
+                <td>Title or description of the content</td>
+              </tr>
+              <tr>
+                <td><strong>Type</strong></td>
+                <td>Content type (e.g., "Program - Live", "Commercial")</td>
+              </tr>
+              <tr>
+                <td><strong>Feed</strong></td>
+                <td>Feed number or identifier</td>
+              </tr>
+              <tr>
+                <td><strong>Date</strong></td>
+                <td>Date and time of the content (DD/MM/YYYY HH:mm)</td>
+              </tr>
+              <tr>
+                <td><strong>Duration</strong></td>
+                <td>Duration of the content (HH:MM:SS)</td>
+              </tr>
+              <tr>
+                <td><strong>Status</strong></td>
+                <td>Current status (e.g., "Ready for Distribution")</td>
+              </tr>
+              <tr>
+                <td><strong>Motion</strong></td>
+                <td>Motion status (true/false or yes/no)</td>
+              </tr>
+              <tr>
+                <td><strong>Edm Qc</strong></td>
+                <td>QC status (true/false or yes/no)</td>
+              </tr>
+              <tr>
+                <td><strong>Tedial</strong></td>
+                <td>Tedial status (true/false or yes/no)</td>
+              </tr>
+              <tr>
+                <td><strong>Origin</strong></td>
+                <td>Origin of the content</td>
+              </tr>
+            </tbody>
+          </Table>
+        </Modal.Body>
+      
+      </Modal>
+
+
       {/* Modal de Detalles PROGRAM TAPES */}
 
       <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" scrollable>
@@ -871,61 +951,66 @@ const IngestDashboard = () => {
 
 
 
-      <div className="file-upload-btn align-items-center">
-        <input
-          id="file-upload"
-          type="file"
-          accept=".xlsx, .xls, .csv"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
+            <div className="file-upload-btn align-items-center">
+              <input
+                id="file-upload"
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
 
-        {fileName ? (
-          <div className="d-flex align-items-center gap-2">
-            <Badge bg="info" className="d-flex align-items-center">
-              <span>{fileName}</span>
-              <Button
-                variant="link"
-                className="text-white p-0 ms-2"
-                onClick={() => {
-                  setFileName('');
-                  setDashboardData([]);
-                  setAvailableDateRange({ minDate: null, maxDate: null });
-                  localStorage.removeItem('ingestDashboardData');
-                  localStorage.removeItem('ingestDashboardFileName');
-                  document.getElementById('file-upload').value = ''; // Resetear el input file
-                }}
-                title="Remove file"
-              >
-                <FiX size={16} />
-              </Button>
-            </Badge>
-            <Button
-              as="label"
-              htmlFor="file-upload"
-              variant="outline-secondary"
-              size="sm"
-            >
-              <FiUpload className="me-1" />
-              Change File
-            </Button>
-          </div>
-        ) : (
-          <Button
-            as="label"
-            htmlFor="file-upload"
-            variant="outline-success"
-          >
-            <FiUpload className="me-2" />
-            Upload Excel
-          </Button>
-        )}
-      </div>
-      
+              {fileName ? (
+                <div className="d-flex align-items-center gap-2">
+                  <Badge bg="info" className="d-flex align-items-center">
+                    <span>{fileName}</span>
+                    <Button
+                      variant="link"
+                      className="text-white p-0 ms-2"
+                      onClick={() => {
+                        setFileName('');
+                        setDashboardData([]);
+                        setAvailableDateRange({ minDate: null, maxDate: null });
+                        localStorage.removeItem('ingestDashboardData');
+                        localStorage.removeItem('ingestDashboardFileName');
+                        document.getElementById('file-upload').value = ''; // Resetear el input file
+                      }}
+                      title="Remove file"
+                    >
+                      <FiX size={16} />
+                    </Button>
+                  </Badge>
+                  <Button
+                    as="label"
+                    htmlFor="file-upload"
+                    variant="outline-secondary"
+                    size="sm"
+                  >
+                    <FiUpload className="me-1" />
+                    Change File
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  as="label"
+                  htmlFor="file-upload"
+                  variant="outline-success"
+                >
+                  <FiUpload className="me-2" />
+                  Upload Excel
+                </Button>
+              )}
+            </div>
 
-            <Button variant="danger" onClick={handleExportPDF}>
+
+            <Button variant="outline-danger" onClick={handleExportPDF}>
               <FiDownload className="me-2" />
               Export PDF
+            </Button>
+
+            <Button variant="outline-warning" onClick={() => setShowInfoModal(true)}>
+              <FiInfo className="me-2" />
+              File Format Info
             </Button>
 
 
