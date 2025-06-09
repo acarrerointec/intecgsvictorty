@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect} from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
@@ -250,7 +250,7 @@ const IngestDashboard = () => {
   // Estado para el mensaje de carga de archivos
   const [uploadMessage, setUploadMessage] = useState(null);
 
-    useEffect(() => {
+  useEffect(() => {
     if (uploadMessage) {
       const timeout = setTimeout(() => {
         setUploadMessage(null);
@@ -356,130 +356,130 @@ const IngestDashboard = () => {
 
 
 
-const REQUIRED_COLUMNS = [
-  'Code', 'Description', 'Type', 'Feed', 'Date', 'Duration',
-  'Status', 'Motion', 'Edm Qc', 'Tedial', 'Origin'
-];
+  const REQUIRED_COLUMNS = [
+    'Code', 'Description', 'Type', 'Feed', 'Date', 'Duration',
+    'Status', 'Motion', 'Edm Qc', 'Tedial', 'Origin'
+  ];
 
 
-const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
+  const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
 
-// Función para manejar la carga de archivos
+  // Función para manejar la carga de archivos
 
-const handleFileUpload = (e) => {
-  const files = Array.from(e.target.files);
-  if (files.length === 0) return;
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-  setIsLoading(true);
-  setUploadMessage(null);
+    setIsLoading(true);
+    setUploadMessage(null);
 
-  const newFiles = files.map(file => ({
-    name: file.name,
-    lastModified: file.lastModified,
-    size: file.size
-  }));
+    const newFiles = files.map(file => ({
+      name: file.name,
+      lastModified: file.lastModified,
+      size: file.size
+    }));
 
-  const duplicates = newFiles.filter(newFile =>
-    uploadedFiles.some(existingFile =>
-      existingFile.name === newFile.name &&
-      existingFile.lastModified === newFile.lastModified &&
-      existingFile.size === newFile.size
-    )
-  );
+    const duplicates = newFiles.filter(newFile =>
+      uploadedFiles.some(existingFile =>
+        existingFile.name === newFile.name &&
+        existingFile.lastModified === newFile.lastModified &&
+        existingFile.size === newFile.size
+      )
+    );
 
-  if (duplicates.length > 0) {
-    setUploadMessage({
-      type: 'warning',
-      text: `Archivos ya cargados: ${duplicates.map(f => f.name).join(', ')}`
-    });
-    setIsLoading(false);
-    return;
-  }
+    if (duplicates.length > 0) {
+      setUploadMessage({
+        type: 'warning',
+        text: `Files already uploaded: ${duplicates.map(f => f.name).join(', ')}`
+      });
+      setIsLoading(false);
+      return;
+    }
 
-  const validFiles = [];
-  const allValidData = [];
-  const errorMessages = [];
+    const validFiles = [];
+    const allValidData = [];
+    const errorMessages = [];
 
-  const promises = files.map(file =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    const promises = files.map(file =>
+      new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
-          const headers = Object.keys(jsonData[0] || {}).map(h => h.trim().toLowerCase());
-          const missing = REQUIRED_COLUMNS.filter(col =>
-            !headers.includes(col.toLowerCase())
-          );
+            const headers = Object.keys(jsonData[0] || {}).map(h => h.trim().toLowerCase());
+            const missing = REQUIRED_COLUMNS.filter(col =>
+              !headers.includes(col.toLowerCase())
+            );
 
-          if (missing.length > 0) {
-            errorMessages.push(`${file.name}: faltan columnas - ${missing.join(', ')}`);
-            resolve(); // archivo inválido, no lo cargamos
-          } else {
-            validFiles.push(file);
-            allValidData.push(...jsonData);
+            if (missing.length > 0) {
+              errorMessages.push(`${file.name}: columns are missing - ${missing.join(', ')}`);
+              resolve(); // archivo inválido, no lo cargamos
+            } else {
+              validFiles.push(file);
+              allValidData.push(...jsonData);
+              resolve();
+            }
+          } catch {
+            errorMessages.push(`${file.name}: error processing file.`);
             resolve();
           }
-        } catch {
-          errorMessages.push(`${file.name}: error al procesar el archivo.`);
+        };
+        reader.onerror = () => {
+          errorMessages.push(`${file.name}: error reading file.`);
           resolve();
-        }
-      };
-      reader.onerror = () => {
-        errorMessages.push(`${file.name}: error de lectura.`);
-        resolve();
-      };
-      reader.readAsArrayBuffer(file);
-    })
-  );
+        };
+        reader.readAsArrayBuffer(file);
+      })
+    );
 
-  Promise.all(promises).then(() => {
-    if (allValidData.length > 0) {
-      const combined = [...dashboardData, ...allValidData];
+    Promise.all(promises).then(() => {
+      if (allValidData.length > 0) {
+        const combined = [...dashboardData, ...allValidData];
 
-      const unique = combined.filter((item, index, self) =>
-        index === self.findIndex(other =>
-          COLUMNS_TO_COMPARE.every(key =>
-            (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
+        const unique = combined.filter((item, index, self) =>
+          index === self.findIndex(other =>
+            COLUMNS_TO_COMPARE.every(key =>
+              (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
+            )
           )
-        )
-      );
+        );
 
-      const updatedFiles = [...uploadedFiles, ...validFiles.map(file => ({
-        name: file.name,
-        lastModified: file.lastModified,
-        size: file.size
-      }))];
+        const updatedFiles = [...uploadedFiles, ...validFiles.map(file => ({
+          name: file.name,
+          lastModified: file.lastModified,
+          size: file.size
+        }))];
 
-      setDashboardData(unique);
-      localStorage.setItem('ingestDashboardData', JSON.stringify(unique));
+        setDashboardData(unique);
+        localStorage.setItem('ingestDashboardData', JSON.stringify(unique));
 
-      setUploadedFiles(updatedFiles);
-      localStorage.setItem('ingestDashboardFiles', JSON.stringify(updatedFiles));
+        setUploadedFiles(updatedFiles);
+        localStorage.setItem('ingestDashboardFiles', JSON.stringify(updatedFiles));
 
-      updateDateRange(unique);
-    }
+        updateDateRange(unique);
+      }
 
-    // Mostrar mensajes
-    if (errorMessages.length > 0) {
-      setUploadMessage({
-        type: allValidData.length > 0 ? 'warning' : 'danger',
-        text: `Algunos archivos fueron rechazados:\n${errorMessages.join('\n')}`
-      });
-    } else if (allValidData.length > 0) {
-      setUploadMessage({
-        type: 'success',
-        text: 'Archivos cargados correctamente.'
-      });
-    }
+      // Mostrar mensajes
+      if (errorMessages.length > 0) {
+        setUploadMessage({
+          type: allValidData.length > 0 ? 'warning' : 'danger',
+          text: `Some files were rejected:\n${errorMessages.join('\n')}`
+        });
+      } else if (allValidData.length > 0) {
+        setUploadMessage({
+          type: 'success',
+          text: 'Files uploaded successfully.'
+        });
+      }
 
-    setIsLoading(false);
-    e.target.value = '';
-  });
-};
+      setIsLoading(false);
+      e.target.value = '';
+    });
+  };
 
 
 
@@ -504,19 +504,19 @@ const handleFileUpload = (e) => {
 
 
   const updateDateRange = (data) => {
-  const dates = data
-    .map(item => processDate(item.Date))
-    .filter(date => !isNaN(date.getTime()));
+    const dates = data
+      .map(item => processDate(item.Date))
+      .filter(date => !isNaN(date.getTime()));
 
-  if (dates.length > 0) {
-    const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
-    const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+    if (dates.length > 0) {
+      const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
 
-    setAvailableDateRange({ minDate, maxDate });
-    setDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
-    setTempDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
-  }
-};
+      setAvailableDateRange({ minDate, maxDate });
+      setDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+      setTempDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+    }
+  };
 
 
   // Función para generar el PDF
@@ -809,18 +809,18 @@ const handleFileUpload = (e) => {
         </div>
       )}
 
-  {/*Mensaje de carga de archivos */}
+      {/*Mensaje de carga de archivos */}
       {uploadMessage && (
-  <div className={`alert alert-${uploadMessage.type} text-center`} role="alert">
-    {uploadMessage.text}
-  </div>
-)}
+        <div className={`alert alert-${uploadMessage.type} text-center`} role="alert">
+          {uploadMessage.text}
+        </div>
+      )}
 
 
       {/* Modal de Información de Formato de Archivo */}
 
       <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} size="xl" scrollable>
-        <Modal.Header closeButton className="bg-light">
+        <Modal.Header closeButton className="bg-warning text-black">
           <Modal.Title>
             <FiInfo className="me-2" />
             Excel File Format Requirements
