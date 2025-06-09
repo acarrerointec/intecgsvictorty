@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect} from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
@@ -212,22 +212,10 @@ FilterControl.propTypes = {
 
 
 
+
 const IngestDashboard = () => {
 
-  {/*
-  // Guardar datos y nombre de archivo en localStorage al inicializar
-  const [dashboardData, setDashboardData] = useState(() => {
-    // Cargar datos desde localStorage al inicializar
-    const savedData = localStorage.getItem('ingestDashboardData');
-    return savedData ? JSON.parse(savedData) : [];
-  });
-
-  const [fileName, setFileName] = useState(() => {
-    const savedFileName = localStorage.getItem('ingestDashboardFileName');
-    return savedFileName || '';
-  });
-
-  */}
+  // Estado para los archivos subidos
 
   const [uploadedFiles, setUploadedFiles] = useState(() => {
     const savedFiles = localStorage.getItem('ingestDashboardFiles');
@@ -257,6 +245,20 @@ const IngestDashboard = () => {
   // Estado para controlar la visibilidad del modal de detalles del programa
   const [showModal, setShowModal] = useState(false);
   const [selectedPrograms, setSelectedPrograms] = useState([]); // Cambiamos a array
+
+
+  // Estado para el mensaje de carga de archivos
+  const [uploadMessage, setUploadMessage] = useState(null);
+
+    useEffect(() => {
+    if (uploadMessage) {
+      const timeout = setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000); // Desaparece después de 5 segundos
+
+      return () => clearTimeout(timeout); // Limpieza
+    }
+  }, [uploadMessage]);
 
 
   // Estado para el modal de Type Program
@@ -352,139 +354,134 @@ const IngestDashboard = () => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  //Función para manejar la carga de archivos execel 
-  /*
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
 
-    setIsLoading(true); // Activar spinner
 
-    setFileName(file.name);
-    localStorage.setItem('ingestDashboardFileName', file.name);
+const REQUIRED_COLUMNS = [
+  'Code', 'Description', 'Type', 'Feed', 'Date', 'Duration',
+  'Status', 'Motion', 'Edm Qc', 'Tedial', 'Origin'
+];
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // Calcular fechas mínima y máxima
-        const dates = jsonData
-          .map(item => processDate(item.Date))
-          .filter(date => !isNaN(date.getTime()));
+const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
 
-        if (dates.length > 0) {
-          const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
-          const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+// Función para manejar la carga de archivos
 
-          setAvailableDateRange({
-            minDate,
-            maxDate
-          });
+const handleFileUpload = (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
 
-          setDateRange([{
-            startDate: minDate,
-            endDate: maxDate,
-            key: 'selection'
-          }]);
-          setTempDateRange([{
-            startDate: minDate,
-            endDate: maxDate,
-            key: 'selection'
-          }]);
+  setIsLoading(true);
+  setUploadMessage(null);
+
+  const newFiles = files.map(file => ({
+    name: file.name,
+    lastModified: file.lastModified,
+    size: file.size
+  }));
+
+  const duplicates = newFiles.filter(newFile =>
+    uploadedFiles.some(existingFile =>
+      existingFile.name === newFile.name &&
+      existingFile.lastModified === newFile.lastModified &&
+      existingFile.size === newFile.size
+    )
+  );
+
+  if (duplicates.length > 0) {
+    setUploadMessage({
+      type: 'warning',
+      text: `Archivos ya cargados: ${duplicates.map(f => f.name).join(', ')}`
+    });
+    setIsLoading(false);
+    return;
+  }
+
+  const validFiles = [];
+  const allValidData = [];
+  const errorMessages = [];
+
+  const promises = files.map(file =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+          const headers = Object.keys(jsonData[0] || {}).map(h => h.trim().toLowerCase());
+          const missing = REQUIRED_COLUMNS.filter(col =>
+            !headers.includes(col.toLowerCase())
+          );
+
+          if (missing.length > 0) {
+            errorMessages.push(`${file.name}: faltan columnas - ${missing.join(', ')}`);
+            resolve(); // archivo inválido, no lo cargamos
+          } else {
+            validFiles.push(file);
+            allValidData.push(...jsonData);
+            resolve();
+          }
+        } catch {
+          errorMessages.push(`${file.name}: error al procesar el archivo.`);
+          resolve();
         }
+      };
+      reader.onerror = () => {
+        errorMessages.push(`${file.name}: error de lectura.`);
+        resolve();
+      };
+      reader.readAsArrayBuffer(file);
+    })
+  );
 
-        setDashboardData(jsonData);
-        localStorage.setItem('ingestDashboardData', JSON.stringify(jsonData));
-      } catch (error) {
-        console.error('Error processing file:', error);
-        alert('Error processing file. Please check the file format.');
-      } finally {
-        setIsLoading(false); // Desactivar spinner
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-*/
+  Promise.all(promises).then(() => {
+    if (allValidData.length > 0) {
+      const combined = [...dashboardData, ...allValidData];
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+      const unique = combined.filter((item, index, self) =>
+        index === self.findIndex(other =>
+          COLUMNS_TO_COMPARE.every(key =>
+            (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
+          )
+        )
+      );
 
-    setIsLoading(true);
+      const updatedFiles = [...uploadedFiles, ...validFiles.map(file => ({
+        name: file.name,
+        lastModified: file.lastModified,
+        size: file.size
+      }))];
 
-    const newFiles = files.map(file => ({
-      name: file.name,
-      lastModified: file.lastModified,
-      size: file.size
-    }));
+      setDashboardData(unique);
+      localStorage.setItem('ingestDashboardData', JSON.stringify(unique));
 
-    // Verificar duplicados
-    const duplicates = newFiles.filter(newFile =>
-      uploadedFiles.some(existingFile =>
-        existingFile.name === newFile.name &&
-        existingFile.lastModified === newFile.lastModified &&
-        existingFile.size === newFile.size
-      )
-    );
+      setUploadedFiles(updatedFiles);
+      localStorage.setItem('ingestDashboardFiles', JSON.stringify(updatedFiles));
 
-    if (duplicates.length > 0) {
-      alert(`Los siguientes archivos ya fueron cargados: ${duplicates.map(f => f.name).join(', ')}`);
-      setIsLoading(false);
-      return;
+      updateDateRange(unique);
     }
 
-    const promises = files.map(file => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-            resolve(jsonData);
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
+    // Mostrar mensajes
+    if (errorMessages.length > 0) {
+      setUploadMessage({
+        type: allValidData.length > 0 ? 'warning' : 'danger',
+        text: `Algunos archivos fueron rechazados:\n${errorMessages.join('\n')}`
       });
-    });
-
-    Promise.all(promises)
-      .then(results => {
-        // Combinar todos los datos y eliminar duplicados por código
-        const allData = results.flat();
-        const uniqueData = allData.filter((item, index, self) =>
-          index === self.findIndex(t => t.Code === item.Code)
-        );
-
-        // Actualizar estado con los nuevos archivos
-        setUploadedFiles(prev => [...prev, ...newFiles]);
-        localStorage.setItem('ingestDashboardFiles', JSON.stringify([...uploadedFiles, ...newFiles]));
-
-        // Actualizar datos combinados
-        const combinedData = [...dashboardData, ...uniqueData];
-        setDashboardData(combinedData);
-        localStorage.setItem('ingestDashboardData', JSON.stringify(combinedData));
-
-        // Actualizar rango de fechas
-        updateDateRange(combinedData);
-      })
-      .catch(error => {
-        console.error('Error processing files:', error);
-        alert('Error processing files. Please check the file formats.');
-      })
-      .finally(() => {
-        setIsLoading(false);
-        e.target.value = ''; // Resetear el input file
+    } else if (allValidData.length > 0) {
+      setUploadMessage({
+        type: 'success',
+        text: 'Archivos cargados correctamente.'
       });
-  };
+    }
+
+    setIsLoading(false);
+    e.target.value = '';
+  });
+};
+
+
 
   const handleRemoveFile = (fileToRemove) => {
     // Filtrar para quitar el archivo
@@ -521,21 +518,7 @@ const IngestDashboard = () => {
   }
 };
 
-  /*
-    const handleApplyDate = () => {
-      setIsLoading(true); // Activar spinner
-      setTimeout(() => { // Usamos setTimeout para permitir que la UI se actualice
-        if (!tempDateRange[0]?.startDate || !tempDateRange[0]?.endDate) {
-          setIsLoading(false);
-          return;
-        }
-  
-        // Validaciones de fecha...
-        setDateRange([...tempDateRange]);
-        setIsLoading(false); // Desactivar spinner
-      }, 50);
-    };
-  */
+
   // Función para generar el PDF
   const handleExportPDF = async () => {
     try {
@@ -809,6 +792,7 @@ const IngestDashboard = () => {
   //console.log("Tapes procesados:", tapeData, tapesList);
 
 
+
   return (
 
 
@@ -824,6 +808,14 @@ const IngestDashboard = () => {
           </div>
         </div>
       )}
+
+  {/*Mensaje de carga de archivos */}
+      {uploadMessage && (
+  <div className={`alert alert-${uploadMessage.type} text-center`} role="alert">
+    {uploadMessage.text}
+  </div>
+)}
+
 
       {/* Modal de Información de Formato de Archivo */}
 
@@ -1745,4 +1737,3 @@ const IngestDashboard = () => {
 
 
 export default IngestDashboard;
-
