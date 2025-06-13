@@ -579,6 +579,11 @@ const ExecutiveDashboard = ({ initialData = [] }) => {
               <FiDownload className="me-2" />
               Export
             </Button>
+
+              <Button variant="outline-warning" onClick={() => setShowInfoModal(true)}>
+                          <FiInfo className="me-2" />
+                          File Format Info
+                        </Button>
           </Stack>
         </Col>
       </Row>

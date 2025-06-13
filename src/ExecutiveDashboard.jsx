@@ -7,13 +7,14 @@
  * - Gráficos interactivos de distribución horaria y por redes
  * - Tabla resumen y vista detallada de programas
  * - Detección de programas duplicados
+ * - Carga múltiple de archivos Excel con validación
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab
+  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal, Spinner
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -22,7 +23,7 @@ import {
 } from 'recharts';
 import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
-  FiCalendar, FiSliders, FiMonitor, FiClock,
+  FiCalendar, FiSliders, FiMonitor, FiClock, FiList,
   FiTv, FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
   FiXCircle, FiAirplay, FiUpload, FiFile
 } from 'react-icons/fi';
@@ -30,12 +31,19 @@ import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
-import data from './data/programacion01al29abril.json';
 import './ExecutiveDashboard.css';
+
+// Columnas requeridas en el archivo Excel
+const REQUIRED_COLUMNS = [
+  'Feed', 'Network', 'Show Code', 'Program', 'Title #', 'Episode Title', 'Dow',
+  'Start Date', 'Start Time', 'End Time', 'End Date', 'Duration', 'LTSA', 'Status',
+  'Origin'
+];
+
+const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
 
 /**
  * Convierte una fecha en formato `DD-MM-YYYY` a un objeto `Date`.
@@ -44,9 +52,27 @@ import './ExecutiveDashboard.css';
  * @returns {Date} - Objeto `Date` correspondiente o la fecha actual si ocurre un error.
  */
 const processDate = (dateString) => {
+  if (!dateString) return new Date();
+
   try {
-    const [day, month, year] = dateString.split('-');
-    return new Date(`${year}-${month}-${day}`);
+    // Intentar múltiples formatos
+    if (dateString.includes('-')) {
+      const [day, month, year] = dateString.split('-');
+      return new Date(`${year}-${month}-${day}`);
+    }
+
+    // Formato ISO (YYYY-MM-DD)
+    if (dateString.includes('/')) {
+      const [day, month, year] = dateString.split('/');
+      return new Date(`${year}-${month}-${day}`);
+    }
+
+    // Formato timestamp de Excel
+    if (!isNaN(dateString)) {
+      return new Date((dateString - 25569) * 86400 * 1000);
+    }
+
+    return new Date(dateString);
   } catch (error) {
     console.error('Error procesando fecha:', dateString);
     return new Date();
@@ -69,8 +95,8 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       ? searchMatches(item, filters.search)
       : true;
 
-    const matchesNetwork = filters.network
-      ? item.Network?.toString() === filters.network
+    const matchesNetwork = filters.Network
+      ? item.Network?.toString() === filters.Network.toString()
       : true;
 
     const matchesShowCode = filters.showCode
@@ -92,7 +118,6 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
     const isSingleBroadcast = filters.ltsa === 'single'
       ? data.filter(d => d["Show Code"] === item["Show Code"]).length === 1
       : true;
-
 
     return (
       matchesDate &&
@@ -125,59 +150,13 @@ const searchMatches = (program, searchTerm) => {
 };
 
 /**
- * Componente personalizado para mostrar información en los tooltips de los gráficos.
- * @param {boolean} active - Indica si el tooltip está activo.
- * @param {Array} payload - Datos del tooltip.
- * @param {string} label - Etiqueta del tooltip.
- * @returns {JSX.Element|null} - Contenido del tooltip o `null` si no está activo.
- */
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || !payload.length) return null;
-
-  const dataItem = payload[0]?.payload || {};
-  const isNetworkChart = 'name' in dataItem && 'count' in dataItem;
-  const isTimeSlotChart = 'hour' in dataItem;
-  const isPieChart = payload[0]?.type === 'pie';
-
-  return (
-    <div className="custom-tooltip">
-      <div className="tooltip-header">
-        {isNetworkChart && <FiTv className="me-2" />}
-        {isTimeSlotChart && <FiClock className="me-2" />}
-        {isNetworkChart ? dataItem.name :
-          isTimeSlotChart ? dataItem.hour :
-            isPieChart ? payload[0]?.name :
-              label}
-      </div>
-      <div className="tooltip-body">
-        {isNetworkChart && (
-          <div style={{ color: payload[0].color }}>
-            Programas: <strong>{dataItem.count}</strong>
-          </div>
-        )}
-        {isTimeSlotChart && payload.map((entry, index) => (
-          <div key={index} style={{ color: entry.color }}>
-            {entry.name}: <strong>{entry.value}</strong>
-          </div>
-        ))}
-        {isPieChart && (
-          <div style={{ color: payload[0].color }}>
-            {payload[0]?.name}: <strong>{payload[0]?.value}</strong>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/**
  * Componente para mostrar información detallada de un programa.
  * @param {Object} program - Datos del programa.
  * @param {boolean} isDuplicate - Indica si el programa está duplicado.
- * @param {Array} networks - Lista de redes asociadas al programa.
+ * @param {Array} Networks - Lista de redes asociadas al programa.
  * @returns {JSX.Element} - Tarjeta con la información del programa.
  */
-const ProgramCard = ({ program, isDuplicate, networks }) => (
+const ProgramCard = ({ program, isDuplicate, Networks }) => (
   <Card className={`program-card h-100 ${isDuplicate ? 'duplicate-program' : ''}`}>
     <Card.Body>
       <Stack gap={2}>
@@ -189,7 +168,7 @@ const ProgramCard = ({ program, isDuplicate, networks }) => (
               {isDuplicate && (
                 <Badge bg="danger" className="ms-2">
                   <FiCopy className="me-1" />
-                  {networks.length > 1 ? `${networks.length} redes` : 'Duplicado'}
+                  {Networks.length > 1 ? `${Networks.length} redes` : 'Duplicado'}
                 </Badge>
               )}
             </Card.Title>
@@ -243,12 +222,12 @@ const ProgramCard = ({ program, isDuplicate, networks }) => (
 ProgramCard.propTypes = {
   program: PropTypes.object.isRequired,
   isDuplicate: PropTypes.bool,
-  networks: PropTypes.arrayOf(PropTypes.string)
+  Networks: PropTypes.arrayOf(PropTypes.string)
 };
 
 ProgramCard.defaultProps = {
   isDuplicate: false,
-  networks: []
+  Networks: []
 };
 
 /**
@@ -274,43 +253,94 @@ FilterControl.propTypes = {
 };
 
 const ExecutiveDashboard = () => {
+  // Estado para los archivos subidos
+  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    const savedFiles = localStorage.getItem('executiveDashboardFiles');
+    return savedFiles ? JSON.parse(savedFiles) : [];
+  });
+
+  const [dashboardData, setDashboardData] = useState(() => {
+    const savedData = localStorage.getItem('executiveDashboardData');
+    return savedData ? JSON.parse(savedData) : [];
+  });
+
   const [showFilters, setShowFilters] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState(null);
+
+  // Estado para controlar los modales
+  const [showModal, setShowModal] = useState(false);
+  const [selectedPrograms, setSelectedPrograms] = useState([]);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [selectedTypePrograms, setSelectedTypePrograms] = useState([]);
+  const [clickedType, setClickedType] = useState('');
+
+  // Estado para controlar el modal de información de archivo
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const [filters, setFilters] = useState({
     feed: '',
-    network: '',
+    Network: '',
     status: '',
     ltsa: '',
     search: '',
     showCode: ''
   });
+
   const [tempDateRange, setTempDateRange] = useState([{
     startDate: new Date(),
     endDate: new Date(),
     key: 'selection'
   }]);
+
   const [dateRange, setDateRange] = useState([{
     startDate: new Date(),
     endDate: new Date(),
     key: 'selection'
   }]);
 
-  // Estado para almacenar los datos subidos
-  const [uploadedData, setUploadedData] = useState(data); // Usar los datos iniciales por defecto
-  const [fileName, setFileName] = useState('programacion01al29abril.json'); // Nombre del archivo actual
+  const [availableDateRange, setAvailableDateRange] = useState({
+    minDate: null,
+    maxDate: null
+  });
 
-  const toggleFilters = () => setShowFilters(!showFilters);
+  // Estados para el control del gráfico de franjas horarias
+  const [hourRange, setHourRange] = useState({ start: 0, end: 23 });
+  const [selectedFeeds, setSelectedFeeds] = useState([]);
+  const [timeSlotTabKey, setTimeSlotTabKey] = useState('chart');
 
+  // Referencia para el PDF
+  const pdfRef = useRef();
+
+// Referencia para el componente de fecha
+// const dateRangeRef = useRef();
+useEffect(() => {
+  console.log("Sample of dashboardData:", dashboardData.slice(0, 5));
+}, [dashboardData]);
+
+  // Efecto para limpiar mensajes después de 5 segundos
+  useEffect(() => {
+    if (uploadMessage) {
+      const timeout = setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [uploadMessage]);
+
+  // Procesamiento de datos principal
   const { filteredData, timeSlots, duplicates, networkDistribution, showCodeNetworkMap } = useMemo(() => {
     setIsFiltering(true);
-    const processed = uploadedData
+    const processed = dashboardData
       .map(item => ({
         ...item,
         start: processDate(item["Start Date"]),
-        end: processDate(item["End Date"])
+        end: processDate(item["End Date"]),
+        Network: item.Network?.toString()
       }))
       .filter(item => !isNaN(item.start.getTime()) && !isNaN(item.end.getTime()));
 
@@ -381,13 +411,14 @@ const ExecutiveDashboard = () => {
         return acc;
       }, {});
 
-    const networkDistribution = filters.network
-      ? [{ name: filters.network, count: filtered.length }]
-      : Object.entries(networkData)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
 
+const networkDistribution = filters.network
+  ? [{ name: filters.network.toString(), count: filtered.length }]
+  : Object.entries(networkData)
+    .map(([name, count]) => ({ name: name.toString(), count }))
+    .sort((a, b) => b.count - a.count);
     setIsFiltering(false);
+    
     return {
       filteredData: filtered,
       timeSlots: slots,
@@ -395,69 +426,220 @@ const ExecutiveDashboard = () => {
       networkDistribution,
       showCodeNetworkMap
     };
-  }, [data, dateRange, filters]);
+  }, [dashboardData, dateRange, filters]);
 
+  // Procesar datos para el gráfico de franjas horarias
+  const { timeSlotsNew, filteredTimeSlotData } = useMemo(() => {
+    const slots = Array(24).fill().map((_, i) => ({
+      hour: `${i}:00`,
+      Live: 0,
+      Tape: 0,
+      'Short Turnaround': 0,
+      originalHour: i
+    }));
+
+    filteredData.forEach(item => {
+      const hour = parseInt(item["Start Time"]?.split(':')[0] || 0);
+      if (hour >= 0 && hour < 24) {
+        const type = item.LTSA === 'Short Turnaround' ? 'Short Turnaround' : item.LTSA;
+        slots[hour][type]++;
+      }
+    });
+
+    // Filtrar según el rango horario y feeds seleccionados
+    const filtered = slots
+      .filter(item => {
+        const hour = parseInt(item.hour);
+        return hour >= hourRange.start && hour <= hourRange.end;
+      })
+      .map(item => {
+        // Si hay feeds seleccionados, ajustar los datos
+        if (selectedFeeds.length > 0) {
+          const feedCounts = filteredData.reduce((acc, program) => {
+            const programHour = parseInt(program["Start Time"]?.split(':')[0] || 0);
+            if (programHour === item.originalHour && selectedFeeds.includes(program.Feed)) {
+              acc[program.LTSA === 'Short Turnaround' ? 'Short Turnaround' : program.LTSA]++;
+            }
+            return acc;
+          }, { Live: 0, Tape: 0, 'Short Turnaround': 0 });
+
+          return { ...item, ...feedCounts };
+        }
+        return item;
+      });
+
+    return { timeSlotsNew: slots, filteredTimeSlotData: filtered };
+  }, [filteredData, hourRange, selectedFeeds]);
+
+  // Métricas calculadas
   const metrics = useMemo(() => ({
     total: filteredData.length,
     live: filteredData.filter(d => d.LTSA === 'Live').length,
     tape: filteredData.filter(d => d.LTSA === 'Tape').length,
     short: filteredData.filter(d => d.LTSA === 'Short Turnaround').length,
-    platform: filteredData.filter(d => d.EMISION === 'PLATAFORMA').length,
-    linear: filteredData.filter(d => d.EMISION === 'LINEAL').length,
+
     duplicates: Array.from(duplicates.values()).filter(v => v.count > 1).length,
     programsSingles: showCodeNetworkMap
       ? Object.values(showCodeNetworkMap).filter(networks => networks.size === 1).length
       : 0
   }), [filteredData, duplicates, showCodeNetworkMap]);
 
-  const handleBarClick = useCallback((data, index) => {
-    if (!timeSlots || index === undefined) return;
-    const clickedSlot = timeSlots[index];
-    setSelectedSlot(prev => prev?.hour === clickedSlot.hour ? null : clickedSlot);
-  }, [timeSlots]);
+  // Función para manejar la carga de archivos
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-  const filteredPrograms = useMemo(() => {
-    if (!selectedSlot) return filteredData;
-    const [startHour] = selectedSlot.hour.split(' - ')[0].split(':');
-    return filteredData.filter(program => {
-      const programHour = parseInt(program["Start Time"]?.split(':')[0] || 0);
-      return programHour >= startHour && programHour < startHour + 3;
+    setIsLoading(true);
+    setUploadMessage(null);
+
+    const newFiles = files.map(file => ({
+      name: file.name,
+      lastModified: file.lastModified,
+      size: file.size
+    }));
+
+    // Verificar archivos duplicados
+    const duplicates = newFiles.filter(newFile =>
+      uploadedFiles.some(existingFile =>
+        existingFile.name === newFile.name &&
+        existingFile.lastModified === newFile.lastModified &&
+        existingFile.size === newFile.size
+      )
+    );
+
+    if (duplicates.length > 0) {
+      setUploadMessage({
+        type: 'warning',
+        text: `Files already uploaded: ${duplicates.map(f => f.name).join(', ')}`
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const validFiles = [];
+    const allValidData = [];
+    const errorMessages = [];
+
+    const promises = files.map(file =>
+      new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+            // Verificar columnas requeridas
+            const headers = Object.keys(jsonData[0] || {}).map(h => h.trim().toLowerCase());
+            const missing = REQUIRED_COLUMNS.filter(col =>
+              !headers.includes(col.toLowerCase())
+            );
+
+            if (missing.length > 0) {
+              errorMessages.push(`${file.name}: missing columns - ${missing.join(', ')}`);
+              resolve(); // archivo inválido, no lo cargamos
+            } else {
+              validFiles.push(file);
+              allValidData.push(...jsonData);
+              resolve();
+            }
+          } catch (error) {
+            errorMessages.push(`${file.name}: error processing file - ${error.message}`);
+            resolve();
+          }
+        };
+        reader.onerror = () => {
+          errorMessages.push(`${file.name}: error reading file`);
+          resolve();
+        };
+        reader.readAsArrayBuffer(file);
+      })
+    );
+
+    Promise.all(promises).then(() => {
+      if (allValidData.length > 0) {
+        const combined = [...dashboardData, ...allValidData];
+
+        // Eliminar duplicados basados en columnas clave
+        const unique = combined.filter((item, index, self) =>
+          index === self.findIndex(other =>
+            COLUMNS_TO_COMPARE.every(key =>
+              (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
+            )
+          )
+        );
+
+        const updatedFiles = [...uploadedFiles, ...validFiles.map(file => ({
+          name: file.name,
+          lastModified: file.lastModified,
+          size: file.size
+        }))];
+
+        setDashboardData(unique);
+        localStorage.setItem('executiveDashboardData', JSON.stringify(unique));
+
+        setUploadedFiles(updatedFiles);
+        localStorage.setItem('executiveDashboardDataFiles', JSON.stringify(updatedFiles));
+
+        updateDateRange(unique);
+      }
+
+      // Mostrar mensajes de resultado
+      if (errorMessages.length > 0) {
+        setUploadMessage({
+          type: allValidData.length > 0 ? 'warning' : 'danger',
+          text: `Some files were rejected:\n${errorMessages.join('\n')}`
+        });
+      } else if (allValidData.length > 0) {
+        setUploadMessage({
+          type: 'success',
+          text: 'Files uploaded successfully.'
+        });
+      }
+
+      setIsLoading(false);
+      e.target.value = '';
     });
-  }, [filteredData, selectedSlot]);
-
-  const handleApplyDate = () => {
-    setDateRange([...tempDateRange]);
   };
 
-  /**
-   * Formatea un rango de fechas para mostrarlo en el encabezado.
-   * @param {Date} start - Fecha de inicio.
-   * @param {Date} end - Fecha de fin.
-   * @returns {string} - Rango de fechas formateado.
-   */
-  const formatDateRange = useCallback((start, end) => {
-    try {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      if (isNaN(startDate) || isNaN(endDate)) return 'Fecha inválida';
+  // Función para eliminar un archivo cargado
+  const handleRemoveFile = (fileToRemove) => {
+    const updatedFiles = uploadedFiles.filter(file =>
+      !(file.name === fileToRemove.name &&
+        file.lastModified === fileToRemove.lastModified &&
+        file.size === fileToRemove.size)
+    );
 
-      const options = { day: '2-digit', month: 'short' };
-      return startDate.toLocaleDateString('es-ES', options) +
-        (startDate.getTime() === endDate.getTime()
-          ? ` ${startDate.getFullYear()}`
-          : ` - ${endDate.toLocaleDateString('es-ES', options)} ${endDate.getFullYear()}`);
-    } catch {
-      return 'Fecha inválida';
+    setUploadedFiles(updatedFiles);
+    localStorage.setItem('executiveDashboardFiles', JSON.stringify(updatedFiles));
+
+    if (updatedFiles.length === 0) {
+      setDashboardData([]);
+      localStorage.removeItem('executiveDashboardData');
+      setAvailableDateRange({ minDate: null, maxDate: null });
     }
-  }, []);
+  };
 
-  // Estado para controlar la visibilidad del PDF
-  const pdfRef = useRef();
+  // Actualizar el rango de fechas disponible
+  const updateDateRange = (data) => {
+    const dates = data
+      .map(item => processDate(item["Start Date"]))
+      .filter(date => !isNaN(date.getTime()));
+
+    if (dates.length > 0) {
+      const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+
+      setAvailableDateRange({ minDate, maxDate });
+      setDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+      setTempDateRange([{ startDate: minDate, endDate: maxDate, key: 'selection' }]);
+    }
+  };
 
   // Función para generar el PDF
   const handleExportPDF = async () => {
     try {
-      // Mostrar mensaje de carga
       const loadingMessage = document.createElement('div');
       loadingMessage.style.position = 'fixed';
       loadingMessage.style.top = '50%';
@@ -468,10 +650,9 @@ const ExecutiveDashboard = () => {
       loadingMessage.style.padding = '20px';
       loadingMessage.style.borderRadius = '5px';
       loadingMessage.style.zIndex = '1000';
-      loadingMessage.textContent = 'Generando PDF...';
+      loadingMessage.textContent = 'Generating PDF...';
       document.body.appendChild(loadingMessage);
 
-      // Capturar el contenido
       const element = pdfRef.current;
       const canvas = await html2canvas(element, {
         scale: 3,
@@ -480,15 +661,12 @@ const ExecutiveDashboard = () => {
         scrollY: -window.scrollY
       });
 
-      // Crear PDF
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-
-      // Calcular cuántas páginas se necesitan
       const totalPages = Math.ceil(pdfHeight / pdf.internal.pageSize.getHeight());
 
       for (let i = 0; i < totalPages; i++) {
@@ -505,88 +683,298 @@ const ExecutiveDashboard = () => {
         );
       }
 
-      // Eliminar mensaje de carga
       document.body.removeChild(loadingMessage);
-
-      // Descargar PDF
-      pdf.save(`ingest-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      pdf.save(`executive-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
-      console.error('Error al generar PDF:', error);
-      alert('Error al generar el PDF. Por favor intenta nuevamente.');
-    }
-  };
-  //Funcion de carga de excel
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-      // Procesar los datos como lo haces actualmente
-      const processed = jsonData.map(item => ({
-        ...item,
-        start: processDate(item["Start Date"]),
-        end: processDate(item["End Date"])
-      })).filter(item => !isNaN(item.start.getTime()) && !isNaN(item.end.getTime()));
-
-      setUploadedData(processed);
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleExportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Programación");
-    XLSX.writeFile(workbook, `programacion_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  };
-
-
-  // Agregar estas funciones helper
-  const getFeedColor = (feed) => {
-    switch (feed) {
-      case 'A': return 'success';
-      case 'B': return 'info';
-      case 'C': return 'warning';
-      case 'D': return 'danger';
-      case 'E': return 'primary';
-      case 'U': return 'secondary';
-      default: return 'light';
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
     }
   };
 
-  const getDuplicateColor = (count) => {
+  // Función para aplicar el rango de fechas
+  const handleApplyDate = () => {
+    setIsFiltering(true);
 
-    if (count >= 5) return 'danger';
-    if (count >= 4) return 'primary';
-    if (count >= 3) return 'warning';
-    if (count >= 2) return 'success';
-    return 'info';
+    setTimeout(() => {
+      if (!tempDateRange[0]?.startDate || !tempDateRange[0]?.endDate) {
+        setIsFiltering(false);
+        return;
+      }
+
+      const startDate = new Date(tempDateRange[0].startDate);
+      const endDate = new Date(tempDateRange[0].endDate);
+
+      if (availableDateRange.minDate && startDate < availableDateRange.minDate) {
+        alert(`Start date cannot be before ${availableDateRange.minDate.toLocaleDateString()}`);
+        setIsFiltering(false);
+        return;
+      }
+
+      if (availableDateRange.maxDate && endDate > availableDateRange.maxDate) {
+        alert(`End date cannot be after ${availableDateRange.maxDate.toLocaleDateString()}`);
+        setIsFiltering(false);
+        return;
+      }
+
+      setDateRange([...tempDateRange]);
+      setIsFiltering(false);
+    }, 500);
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+  // Función para aplicar el rango de fechas
+  const toggleFilters = () => setShowFilters(!showFilters);
+
+  // Función para manejar clic en gráfico de tipos
+  const handleTypeBarClick = (data) => {
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      const clickedType = data.activePayload[0].payload.name;
+      let matchingPrograms = [];
+
+      if (clickedType === 'Live' || clickedType === 'Tape' || clickedType === 'Short Turnaround') {
+        matchingPrograms = filteredData.filter(item => item.LTSA === clickedType);
+      } else if (clickedType === 'PLATAFORMA' || clickedType === 'LINEAL') {
+        matchingPrograms = filteredData.filter(item => item.EMISION === clickedType);
+      }
+
+      setSelectedTypePrograms(matchingPrograms);
+      setClickedType(clickedType);
+      setShowTypeModal(true);
+    }
+  };
+
+  // Manejador de clic en las barras del gráfico
+  const handleTimeSlotBarClick = (e) => {
+    if (e.activePayload && e.activePayload.length > 0) {
+      const clickedHour = parseInt(e.activePayload[0].payload.hour);
+
+      // Filtrar programas de esa hora
+      const matchingPrograms = filteredData.filter(program => {
+        const programHour = parseInt(program["Start Time"]?.split(':')[0] || 0);
+        return programHour === clickedHour &&
+          (selectedFeeds.length === 0 || selectedFeeds.includes(program.Feed));
+      });
+
+      setSelectedPrograms(matchingPrograms);
+      setShowModal(true);
+    }
+  };
+
+  // Función para manejar clic en gráfico de horarios
+  const handleTimeSlotClick = (data, index) => {
+    if (!timeSlots || index === undefined) return;
+    const clickedSlot = timeSlots[index];
+
+    const matchingPrograms = filteredData.filter(program => {
+      const programHour = parseInt(program["Start Time"]?.split(':')[0] || 0);
+      return programHour >= clickedSlot.originalHour && programHour < clickedSlot.originalHour + 3;
     });
+
+    setSelectedPrograms(matchingPrograms);
+    setShowModal(true);
+    setSelectedSlot(clickedSlot);
   };
 
-  const formatTime = (time) => {
-    return time.substring(0, 5); // Formato HH:mm
-  };
+  // Formatear rango de fechas
+  const formatDateRange = useCallback((start, end) => {
+    try {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (isNaN(startDate) || isNaN(endDate)) return 'Invalid date';
+
+      const options = { day: '2-digit', month: 'short' };
+      return startDate.toLocaleDateString('es-ES', options) +
+        (startDate.getTime() === endDate.getTime()
+          ? ` ${startDate.getFullYear()}`
+          : ` - ${endDate.toLocaleDateString('es-ES', options)} ${endDate.getFullYear()}`);
+    } catch {
+      return 'Invalid date';
+    }
+  }, []);
+
+  // Colores para gráficos
+  const COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#3B5249', '#59A5D8'];
 
   return (
     <Container fluid className="executive-dashboard" ref={pdfRef}>
+      {/* Spinner de carga */}
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <Spinner animation="border" variant="primary" />
+            <div className="loading-text">Processing data...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje de carga de archivos */}
+      {uploadMessage && (
+        <div className={`alert alert-${uploadMessage.type} text-center`} role="alert">
+          {uploadMessage.text}
+        </div>
+      )}
+
+      {/* Modal de Información de Formato de Archivo */}
+      <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton className="bg-warning text-black">
+          <Modal.Title>
+            <FiInfo className="me-2" />
+            Excel File Format Requirements
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <h5>Supported Formats:</h5>
+          <ul>
+            <li>.xlsx (Excel Workbook)</li>
+            <li>.xls (Excel 97-2003 Workbook)</li>
+            <li>.csv (Comma Separated Values)</li>
+          </ul>
+
+          <h5 className="mt-4">Required Columns:</h5>
+          <Table striped bordered>
+            <thead>
+              <tr>
+                <th>Column Name</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REQUIRED_COLUMNS.map((column, index) => (
+                <tr key={index}>
+                  <td><strong>{column}</strong></td>
+                  <td>
+                    {column === 'Feed' && 'Feed number or identifier'}
+                    {column === 'Network' && 'Channel number'}
+                    {column === 'Show Code' && 'Unique identifier for the content'}
+                    {column === 'Program' && 'Program identifier'}
+                    {column === 'Title #' && 'Title number'}
+                    {column === 'Episode Title' && 'Title or description of the content'}
+                    {column === 'Dow' && 'Day of week identifier'}
+                    {column === 'Start Date' && 'Date of the content (DD/MM/YYYY)'}
+                    {column === 'Start Time' && 'Start time of the content (HH:MM:SS)'}
+                    {column === 'End Time' && 'End time of the content (HH:MM:SS)'}
+                    {column === 'End Date' && 'End date of the content (DD/MM/YYYY)'}
+                    {column === 'Duration' && 'Duration of the content (HH:MM:SS)'}
+                    {column === 'LTSA' && 'Type of broadcast (Live, Tape, Short Turnaround)'}
+                    {column === 'Status' && 'Current status'}
+                    {column === 'Origin' && 'Origin of the content'}
+
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal de Detalles de Programas por Horario */}
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <FiClock className="me-2" />
+            Programs for {selectedSlot?.hour || 'selected time slot'}
+            <Badge bg="info" className="ms-3">
+              {selectedPrograms.length} {selectedPrograms.length === 1 ? 'program' : 'programs'}
+            </Badge>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>Show Code</th>
+                <th>Episode Title</th>
+                <th>Network</th>
+                <th>Feed</th>
+                <th>Start Time</th>
+                <th>Duration</th>
+                <th>Type</th>
+                <th>Platform</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedPrograms.map((program, index) => (
+                <tr key={index}>
+                  <td>{program["Show Code"]}</td>
+                  <td>{program["Episode Title"]}</td>
+                  <td>{program.Network}</td>
+                  <td>{program.Feed}</td>
+                  <td>{program["Start Time"]}</td>
+                  <td>{program.Duration}</td>
+                  <td>
+                    <Badge bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
+                      {program.LTSA}
+                    </Badge>
+                  </td>
+                  <td>
+                    <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
+                      {program.EMISION}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {selectedPrograms.length === 0 && (
+            <div className="text-center py-4">
+              <FiXCircle className="display-6 text-muted mb-3" />
+              <p className="text-muted">No programs found for this time slot</p>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal para Type Program (Live, Tape, etc.) */}
+      <Modal show={showTypeModal} onHide={() => setShowTypeModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <FiFilm className="me-2" />
+            {clickedType} Programs
+            <Badge bg="info" className="ms-3">
+              {selectedTypePrograms.length} {selectedTypePrograms.length === 1 ? 'program' : 'programs'}
+            </Badge>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+
+
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>Show Code</th>
+                <th>Episode Title</th>
+                <th>Network</th>
+                <th>Feed</th>
+                <th>Start Date</th>
+                <th>Start Time</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedTypePrograms.map((program, index) => (
+                <tr key={index}>
+                  <td>{program["Show Code"]}</td>
+                  <td>{program["Episode Title"]}</td>
+                  <td>{program.Network}</td>
+                  <td>{program.Feed}</td>
+                  <td>{program["Start Date"]}</td>
+                  <td>{program["Start Time"]}</td>
+                  <td>{program.Duration}</td>
+                  <td>{program.Status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {selectedTypePrograms.length === 0 && (
+            <div className="text-center py-4">
+              <FiXCircle className="display-6 text-muted mb-3" />
+              <p className="text-muted">No programs found for this type</p>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Encabezado del dashboard */}
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
@@ -599,72 +987,76 @@ const ExecutiveDashboard = () => {
             </div>
           </Stack>
         </Col>
-
         <Col md={4} className="text-end">
           <Stack direction="horizontal" gap={3} className="justify-content-end align-items-center">
-            <Button
-              variant="outline-primary"
-              onClick={toggleFilters}
-              className="d-flex align-items-center"
-            >
-              {showFilters ? (
-                <>
-                  <FiEyeOff className="me-2" />
-                  Filtres
-                </>
-              ) : (
-                <>
-                  <FiEye className="me-2" />
-                  Filtres
-                </>
-              )}
+            <Button variant="outline-primary" onClick={toggleFilters}>
+              {showFilters ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
+              Filters
             </Button>
-
-            <Button
-              variant="outline-secondary"
-              onClick={() => setShowDetails(!showDetails)}
-              className="d-flex align-items-center"
-            >
+            <Button variant="outline-secondary" onClick={() => setShowDetails(!showDetails)}>
               {showDetails ? <FiEyeOff className="me-2" /> : <FiEye className="me-2" />}
               Table
             </Button>
+            <Button variant="outline-danger" onClick={handleExportPDF}>
+              <FiDownload className="me-2" />
+              Export PDF
+            </Button>
+            <Button variant="outline-warning" onClick={() => setShowInfoModal(true)}>
+              <FiInfo className="me-2" />
+              File Format
+            </Button>
 
-            <Button
-              variant="outline-success"
-              className="d-flex align-items-center"
-              onClick={() => document.getElementById('file-upload').click()}
-            >
-              <FiUpload className="me-2" />
-              Upload Excel
+            {/* Botón para cargar archivos */}
+            <div className="file-upload-section">
               <input
                 id="file-upload"
                 type="file"
                 accept=".xlsx, .xls, .csv"
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
+                multiple
               />
-            </Button>
-
-            <Button variant="danger" className="d-flex align-items-center" onClick={handleExportPDF}>
-              <FiDownload className="me-2" />
-              Export PDF
-            </Button>
+              <Button as="label" htmlFor="file-upload" variant="outline-success">
+                <FiUpload className="me-2" />
+                Upload Files
+              </Button>
+            </div>
           </Stack>
         </Col>
-
-
       </Row>
 
+      {/* Lista de archivos cargados */}
+      {uploadedFiles.length > 0 && (
+        <Row className="mb-4">
+          <Col>
+            <Card>
+              <Card.Body>
+                <h6>Uploaded Files:</h6>
+                <div className="file-list">
+                  {uploadedFiles.map((file, index) => (
+                    <Badge key={index} bg="light" text="dark" className="me-2 mb-2 file-badge">
+                      {file.name}
+                      <Button
+                        variant="link"
+                        className="text-danger p-0 ms-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFile(file);
+                        }}
+                        title="Remove file"
+                      >
+                        <FiX size={12} />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
-
-              <div className="date-display">
-  <FiCalendar className="me-3" />
-  {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
-  <span className="ms-3 text-muted">
-    <FiFile className="me-1" />
-    {fileName}
-  </span>
-</div>
+      {/* Filtros */}
       <Collapse in={showFilters}>
         <div>
           <Card className="main-filters mb-5">
@@ -684,21 +1076,38 @@ const ExecutiveDashboard = () => {
                           editableDateInputs
                           moveRangeOnFirstSelection={false}
                           direction="horizontal"
+                          minDate={availableDateRange.minDate}
+                          maxDate={availableDateRange.maxDate}
                         />
                       </div>
+                      {availableDateRange.minDate && availableDateRange.maxDate && (
+                        <h3 className="text-muted d-block mt-1">
+                          Available range: {availableDateRange.minDate.toLocaleDateString()} - {availableDateRange.maxDate.toLocaleDateString()}
+                        </h3>
+                      )}
                       <Button
                         variant="primary"
                         onClick={handleApplyDate}
                         className="mt-2 w-90 apply-date-btn"
+                        disabled={isFiltering}
                       >
-                        <FiCheck className="me-2" /> Apply Date
+                        {isFiltering ? (
+                          <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            Applying...
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="me-2" /> Apply Date
+                          </>
+                        )}
                       </Button>
                     </div>
                   </FilterControl>
                 </Col>
 
-                <Col xl={9} lg={7} md={12}>
-                  <Row className="g-3 w-60" >
+                <Col xl={8} lg={7} md={12}>
+                  <Row className="g-3">
                     <Col md={12} className="filter-group">
                       <Row className="g-3">
                         <Col xs={12} sm={6} lg={4}>
@@ -708,7 +1117,7 @@ const ExecutiveDashboard = () => {
                               onChange={e => setFilters(prev => ({ ...prev, ltsa: e.target.value }))}
                             >
                               <option value="">All</option>
-                              <option value="single">Single broadcast programs</option>
+                              <option value="single">Single broadcast</option>
                               <option value="Live">Live</option>
                               <option value="Tape">Tape</option>
                               <option value="Short Turnaround">Short Turnaround</option>
@@ -722,7 +1131,7 @@ const ExecutiveDashboard = () => {
                               value={filters.feed}
                               onChange={e => setFilters(prev => ({ ...prev, feed: e.target.value }))}
                             >
-                              <option value="">Todos</option>
+                              <option value="">All</option>
                               {['A', 'B', 'C', 'D', 'E', 'U'].map(feed => (
                                 <option key={feed} value={feed}>{feed}</option>
                               ))}
@@ -732,6 +1141,7 @@ const ExecutiveDashboard = () => {
 
                         <Col xs={12} sm={6} lg={4}>
                           <FilterControl label="Network" icon={<FiTv />}>
+
                             <Form.Select
                               value={filters.network}
                               onChange={e => setFilters(prev => ({ ...prev, network: e.target.value }))}
@@ -747,13 +1157,10 @@ const ExecutiveDashboard = () => {
                       </Row>
                     </Col>
 
-                    <Col md={9}>
-                      <Row className="g-1  w-80  align-items-end">
-
-
-                        {/* Nuevo campo para show code */}
+                    <Col md={12}>
+                      <Row className="g-3 align-items-end">
                         <Col xs={12} sm={6} lg={4}>
-                          <FilterControl label="Show code" icon={<FiSearch />}>
+                          <FilterControl label="Show Code" icon={<FiSearch />}>
                             <Form.Control
                               type="text"
                               placeholder="Search by show code"
@@ -763,15 +1170,26 @@ const ExecutiveDashboard = () => {
                           </FilterControl>
                         </Col>
 
-                        <Col xs={9} md={4} lg={3}>
+                        <Col xs={12} sm={6} lg={4}>
+                          <FilterControl label="Episode Title" icon={<FiSearch />}>
+                            <Form.Control
+                              type="text"
+                              placeholder="Search by title"
+                              value={filters.search}
+                              onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                            />
+                          </FilterControl>
+                        </Col>
+
+                        <Col xs={12} sm={4} lg={3}>
                           <Button
                             variant="outline-danger"
                             onClick={() => setFilters({
-                              feed: '', network: '', status: '', ltsa: '', search: ''
+                              feed: '', network: '', status: '', ltsa: '', search: '', showCode: ''
                             })}
                             className="w-90 clear-all-btn"
                           >
-                            <FiRefreshCw className="me-2" /> Clean filtres
+                            <FiRefreshCw className="me-2" /> Clear filters
                           </Button>
                         </Col>
                       </Row>
@@ -783,25 +1201,26 @@ const ExecutiveDashboard = () => {
           </Card>
         </div>
       </Collapse>
-      {/* ... (Mantener las secciones de métricas, gráficos y programación detallada) ... */}
+
+      {/* Métricas */}
       <Row className="metrics-grid g-4 mb-5">
         {[
-          { title: 'Total Content', value: metrics.total, icon: <FiTv />, color: 'drark' },
+          { title: 'Total Content', value: metrics.total, icon: <FiTv />, color: 'dark' },
           { title: 'Live', value: metrics.live, icon: <FiBarChart2 />, color: 'danger' },
           { title: 'Tape', value: metrics.tape, icon: <FiBarChart2 />, color: 'secondary' },
-          { title: 'Short Turnaroud', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
-          { title: 'Plataforma', value: metrics.platform, icon: <FiMonitor />, color: 'info' },
-          { title: 'Lineal', value: metrics.linear, icon: <FiFilm />, color: 'warning' },
-          { title: 'Duplicate Show Code network', value: metrics.duplicates, icon: <FiCopy />, color: 'duplicados' }
+          { title: 'Short Turnaround', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
+          {/*
+          { title: 'Duplicate Programs', value: metrics.duplicates, icon: <FiCopy />, color: 'danger' },
+          { title: 'Single Broadcast', value: metrics.programsSingles, icon: <FiAirplay />, color: 'success' }
 
+        
+      */}
         ].map((metric, index) => (
-          <Col xl={3} lg={6} key={index}>
+          <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
               <Card.Body>
                 <Stack direction="horizontal" className="align-items-center">
-                  <div className="metric-icon">
-                    {metric.icon}
-                  </div>
+                  <div className="metric-icon">{metric.icon}</div>
                   <div className="ms-3">
                     <div className="metric-value">{metric.value}</div>
                     <div className="metric-label">{metric.title}</div>
@@ -810,254 +1229,466 @@ const ExecutiveDashboard = () => {
               </Card.Body>
             </Card>
           </Col>
+        
         ))}
+
+        
       </Row>
 
-      <Row className="g-4 mb-5">
+      {/* Gráficos principales */}
 
-
-
-
-
-        <Col xl={8}>
-          <Card className="chart-card">
-            <Card.Header className="chart-header">
-              <Stack direction="horizontal" className="justify-content-between align-items-center">
-                <div>
-                  <FiBarChart2 className="me-2" />
-                  Programación por Horario
-                </div>
-                {selectedSlot && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setSelectedSlot(null)}
-                    className="text-danger"
-                  >
-                    <FiX className="me-1" /> Limpiar filtro
-                  </Button>
-                )}
-              </Stack>
-            </Card.Header>
-            <Card.Body>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={timeSlots}
-                    onClick={handleBarClick}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="hour"
-                      tick={{ fill: '#6c757d' }}
-                    />
-                    <YAxis
-                      label={{
-                        value: 'Cantidad',
-                        angle: -90,
-                        position: 'insideLeft',
-                        fill: '#6c757d'
-                      }}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: '10px' }}
-                      formatter={(value) => (
-                        <span className="text-secondary">{value}</span>
-                      )}
-                    />
-                    <Bar
-                      dataKey="Live"
-                      name="En vivo"
-                      fill="#dc3545"
-                      fillOpacity={selectedSlot ? 0.5 : 1}
-                    />
-                    <Bar
-                      dataKey="Tape"
-                      name="Grabado"
-                      fill="#69df83"
-                      fillOpacity={selectedSlot ? 0.5 : 1}
-                    />
-                    <Bar
-                      dataKey="Short"
-                      name="Short Turnaround"
-                      fill="#fae824"
-                      fillOpacity={selectedSlot ? 0.5 : 1}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col xl={4}>
-          <Card className="chart-card">
-            <Card.Header className="chart-header">
-              <PieChart className="me-2" />
-              Distribución de Plataformas
-            </Card.Header>
-            <Card.Body>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'Plataforma', value: metrics.platform },
-                        { name: 'Lineal', value: metrics.linear }
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      <Cell key="Plataforma" fill="#17a2b8" />
-                      <Cell key="Lineal" fill="#ffc107" />
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      formatter={(value) => (
-                        <span className="text-secondary">{value}</span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
 
 
       <Row className="g-4 mb-5">
         <Col xl={12}>
           <Card className="chart-card">
-            <Tabs defaultActiveKey="grafico" className="mb-3">
-              {/* Pestaña del Gráfico */}
-              <Tab eventKey="grafico" title={
-                <span><FiBarChart2 className="me-1" />Graphic</span>
-              }>
+            <Card.Header className="chart-header">
+              <div className="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                  <FiClock className="me-2" />
+                  Programs by Time Slot
+                </div>
+                <div className="d-flex gap-3 align-items-center">
+                  <div className="d-flex align-items-center">
+                    <small className="me-2">Time range:</small>
+                    <div className="d-flex gap-2 align-items-center">
+                      <Form.Select
+                        size="sm"
+                        value={hourRange.start}
+                        onChange={(e) => setHourRange({ ...hourRange, start: parseInt(e.target.value) })}
+                        style={{ width: '80px' }}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={`start-${i}`} value={i}>{`${i}:00`}</option>
+                        ))}
+                      </Form.Select>
+                      <span>-</span>
+                      <Form.Select
+                        size="sm"
+                        value={hourRange.end}
+                        onChange={(e) => setHourRange({ ...hourRange, end: parseInt(e.target.value) })}
+                        style={{ width: '80px' }}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={`end-${i}`} value={i}>{`${i}:00`}</option>
+                        ))}
+                      </Form.Select>
+                    </div>
+                  </div>
+
+                  <div className="d-flex align-items-center feed-filter">
+                    <small className="me-2">Feeds:</small>
+                    <div className="d-flex flex-wrap gap-1 feed-badges">
+                      {['A', 'B', 'C', 'D', 'E', 'U'].map(feed => (
+                        <Badge
+                          key={feed}
+                          bg={selectedFeeds.includes(feed) ? "primary" : "secondary"}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (selectedFeeds.includes(feed)) {
+                              setSelectedFeeds(selectedFeeds.filter(f => f !== feed));
+                            } else {
+                              setSelectedFeeds([...selectedFeeds, feed]);
+                            }
+                          }}
+                        >
+                          {feed}
+                        </Badge>
+                      ))}
+                      {selectedFeeds.length > 0 && (
+                        <Badge
+                          bg="danger"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedFeeds([])}
+                        >
+                          <FiX size={12} />
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card.Header>
+            <Card.Body>
+              <Tabs
+                activeKey={timeSlotTabKey}
+                onSelect={(k) => setTimeSlotTabKey(k)}
+                className="mb-3"
+              >
+                <Tab eventKey="chart" title={<span><FiBarChart2 className="me-2" />Graphic</span>}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart
+                      data={filteredTimeSlotData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                      onClick={handleTimeSlotBarClick}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
+                      <XAxis
+                        dataKey="hour"
+                        label={{
+                          value: 'Hour of Day',
+                          position: 'insideBottom',
+                          offset: -50,
+                          fontSize: 12
+                        }}
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis
+                        label={{
+                          value: 'Number of Programs',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: 10,
+                          fontSize: 12
+                        }}
+                      />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            const hour = parseInt(label);
+                            const totalPrograms = payload.reduce((sum, item) => sum + item.value, 0);
+
+                            return (
+                              <div className="custom-tooltip p-2 bg-white border rounded shadow">
+                                <p className="fw-bold mb-1">{`${hour}:00 - ${hour + 1}:00`}</p>
+                                {payload.map((item, idx) => (
+                                  <p key={idx} className="mb-0" style={{ color: item.color }}>
+                                    {item.name}: <strong>{item.value}</strong>
+                                  </p>
+                                ))}
+                                <p className="mt-1 mb-0">Total: <strong>{totalPrograms}</strong></p>
+                                <small className="text-muted">Click to see details</small>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        formatter={(value) => <span className="small">{value}</span>}
+                      />
+                      <Bar
+                        dataKey="Live"
+                        name="Live"
+                        stackId="stack"
+                        fill="#dc3545"
+                        opacity={0.8}
+                        animationDuration={1500}
+                      />
+                      <Bar
+                        dataKey="Tape"
+                        name="Tape"
+                        stackId="stack"
+                        fill="#28a745"
+                        opacity={0.8}
+                        animationDuration={1500}
+                      />
+                      <Bar
+                        dataKey="Short Turnaround"
+                        name="Short Turnaround"
+                        stackId="stack"
+                        fill="#ffc107"
+                        opacity={0.8}
+                        animationDuration={1500}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="text-center mt-3">
+                    <small className="text-muted">
+                      Displaying {filteredTimeSlotData.length} hours from the selected time range |
+                      Total programs: {filteredData.length}
+                    </small>
+                  </div>
+                </Tab>
+                <Tab eventKey="details" title={<span><FiList className="me-2" />Table</span>}>
+                  <Row className="g-4">
+                    <Col md={12}>
+                      <div className="mb-4">
+                        <h6 className="mb-3">Distribution by Feed</h6>
+                        <div className="d-flex flex-wrap gap-2">
+                          {['A', 'B', 'C', 'D', 'E', 'U'].map((feed, index) => {
+                            const count = filteredData.filter(program => program.Feed === feed).length;
+                            return (
+                              <Badge
+                                key={feed}
+                                bg="light"
+                                text="dark"
+                                className="p-2"
+                                style={{ borderLeft: `4px solid ${COLORS[index % COLORS.length]}` }}
+                              >
+                                {feed}: {count} programs
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <Table striped bordered responsive className="program-details-table">
+                        <thead>
+                          <tr>
+                            <th>Show Code</th>
+                            <th>Episode Title</th>
+                            <th>Network</th>
+                            <th>Feed</th>
+                            <th>Start Time</th>
+                            <th>Duration</th>
+                            <th>Type</th>
+                            <th>Platform</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredData.map((program, idx) => (
+                            <tr
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPrograms([program]);
+                                setShowModal(true);
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <td>{program["Show Code"]}</td>
+                              <td>{program["Episode Title"]}</td>
+                              <td>{program.Network}</td>
+                              <td>{program.Feed}</td>
+                              <td>{program["Start Time"]}</td>
+                              <td>{program.Duration}</td>
+                              <td>
+                                <Badge bg={program.LTSA === 'Live' ? 'danger' :
+                                  program.LTSA === 'Tape' ? 'success' : 'warning'}>
+                                  {program.LTSA}
+                                </Badge>
+                              </td>
+                              <td>
+                                <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
+                                  {program.EMISION}
+                                </Badge>
+                              </td>
+                              <td>{program.Status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                      {filteredData.length === 0 && (
+                        <div className="text-center py-4">
+                          <FiXCircle className="display-6 text-muted mb-3" />
+                          <p className="text-muted">No programs were found with the current filters</p>
+                        </div>
+                      )}
+                    </Col>
+                  </Row>
+                </Tab>
+              </Tabs>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+
+      {/* Gráfico de distribución por red */}
+      <Row className="g-3 mb-2">
+        <Col xl={12}>
+          <Card className="chart-card">
+            <Card.Header className="chart-header">
+              <FiTv className="me-3" />
+              Program Distribution by Network
+            </Card.Header>
+            <Card.Body>
+              <div style={{ height: '400px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={networkDistribution}
+                    margin={{ top: 20, right: 30, left: 120, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: '#6c757d' }}
+                      domain={[0, 'auto']}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                      tick={{ fill: '#6c757d' }}
+                      interval={0}
+                    />
+                    <Tooltip
+                      formatter={(value) => [`${value} programs`, 'Count']}
+                      cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      name="Programs by Network"
+                      fill="#2E86AB"
+                      radius={[0, 3, 3, 0]}
+                      onClick={handleTypeBarClick}
+                    >
+                      {networkDistribution.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`#2E86AB${Math.min(50 + index * 20, 90)}`}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <Card.Footer className="text-muted">
+                <small>
+                  {filters.network
+                    ? `Showing results for network ${filters.network}`
+                    : 'Program distribution by television network'}
+                </small>
+              </Card.Footer>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Tabla de programas duplicados */}
+      <Row className="g-4 mb-5">
+        <Col xl={12}>
+          <Card className="chart-card">
+            <Tabs defaultActiveKey="chart" className="mb-3">
+              <Tab eventKey="chart" title={<span><FiBarChart2 className="me-1" />Chart</span>}>
                 <Card.Header className="chart-header">
-                  Distribution of programs by Network
+                  <h5>Duplicate Programs Distribution</h5>
                 </Card.Header>
                 <Card.Body>
                   <div style={{ height: '400px' }}>
                     <ResponsiveContainer width="100%" height="100%">
-
                       <BarChart
                         layout="vertical"
-                        data={networkDistribution}
+                        data={Array.from(duplicates.entries())
+                          .filter(([_, info]) => info.count > 1)
+                          .map(([key, info]) => ({
+                            name: key.split('-')[0], // Show Code
+                            count: info.count,
+                            networks: Array.from(info.networks).join(', ')
+                          }))}
                         margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis
                           type="number"
-                          tick={{ fill: '#6c757d' }}
-                          domain={[0, 'auto']} // Asegura que siempre muestre desde 0
+                          tick={{ fill: '#495057', fontSize: 12 }}
+                          domain={[0, 'auto']}
                         />
                         <YAxis
                           type="category"
                           dataKey="name"
                           width={140}
-                          tick={{ fill: '#6c757d' }}
-                          interval={0}
+                          tick={{ fill: '#495057', fontSize: 12 }}
                         />
                         <Tooltip
-                          content={<CustomTooltip />}
-                          cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="custom-tooltip p-2 bg-white border rounded shadow">
+                                  <p className="fw-bold mb-1">Show Code: {label}</p>
+                                  <p className="mb-0">Duplicates: <strong>{payload[0].value}</strong></p>
+                                  <p className="mb-0">Networks: <strong>{payload[0].payload.networks}</strong></p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
                         />
                         <Bar
                           dataKey="count"
-                          name="Programas por Red"
-                          fill="#2E86AB"
-                          radius={[0, 3, 3, 0]}
+                          name="Duplicates"
                         >
-                          {networkDistribution.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={`#2E86AB${Math.min(50 + index * 20, 90)}`} // Mayor opacidad base
-                            />
-                          ))}
+                          {Array.from(duplicates.entries())
+                            .filter(([_, info]) => info.count > 1)
+                            .map((entry, index) => {
+                              const count = entry[1].count;
+                              let color;
+                              if (count > 4) color = '#dc3545';
+                              else if (count > 3) color = '#000fff';
+                              else if (count > 2) color = '#ffc107';
+                              else color = '#20c997';
+                              return (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={color}
+                                />
+                              );
+                            })}
                         </Bar>
+                        <Legend
+                          payload={[
+                            { value: '2 Networks', type: 'rect', color: '#20c997' },
+                            { value: '3 Networks', type: 'rect', color: '#ffc107' },
+                            { value: '4 Networks', type: 'rect', color: '#000fff' },
+                            { value: '5+ Networks', type: 'rect', color: '#dc3545' }
+                          ]}
+                        />
                       </BarChart>
-
                     </ResponsiveContainer>
                   </div>
                 </Card.Body>
-                <Card.Footer className="text-muted">
-                  <small>
-                    {filters.network
-                      ? `Showing results for the network ${filters.network}`
-                      : 'Program distribution by television network'}
-                  </small>
-                </Card.Footer>
               </Tab>
-
-              {/* Pestaña de la Tabla */}
-              <Tab eventKey="tabla" title={
-                <span><FiMonitor className="me-1" />Table <Badge bg="dark" pill>{filteredPrograms.length}</Badge></span>
-              }>
-
+              <Tab eventKey="table" title={<span><FiMonitor className="me-1" />Table <Badge bg="dark" pill>{Array.from(duplicates.values()).filter(v => v.count > 1).length}</Badge></span>}>
                 <Card.Header className="details-header">
-                  <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
-                    <h5 className="mb-0">Table of Contents</h5>
-                    <Badge bg="dark" pill>{filteredData.length}</Badge>
-                  </Stack>
+                  <h5>Duplicate Programs Table</h5>
                 </Card.Header>
                 <Card.Body>
                   <div className="table-responsive">
-
-                    <Table striped bordered hover responsive >
+                    <Table striped bordered hover responsive>
                       <thead>
                         <tr>
-                          <th>Title</th>
                           <th>Show Code</th>
-                          <th>Network</th>
+                          <th>Title</th>
+                          <th>Networks</th>
                           <th>Feed</th>
-                          <th>Duration</th>
-                          <th>Type</th>
-                          <th>Plataforma</th>
-                          <th>Date</th>
+                          <th>Duplicates</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPrograms.map((program) => (
-                          <tr key={`${program["Show Code"]}-${program.Network}`}>
-                            <td className="text-nowrap">{program["Episode Title"]}</td>
-                            <td>
-                              <Badge bg="secondary">{program["Show Code"]}</Badge>
-                            </td>
-                            <td>{program.Network}</td>
-                            <td>{program.Feed}</td>
-                            <td>
-                              {program.Duration}
-
-                            </td>
-                            <td>
-                              <Badge pill bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
-                                {program.LTSA}
-                              </Badge>
-                            </td>
-                            <td>{program.EMISION}</td>
-                            <td>
-                              {program["Start Date"]}
-                            </td>
-                          </tr>
-                        ))}
+                        {Array.from(duplicates.entries())
+                          .filter(([_, info]) => info.count > 1)
+                          .map(([key, info]) => {
+                            const [showCode] = key.split('-');
+                            const program = filteredData.find(p => p["Show Code"] === showCode);
+                            return (
+                              <tr key={key}>
+                                <td>
+                                  <Badge bg="primary" className="fw-normal">
+                                    {showCode}
+                                  </Badge>
+                                </td>
+                                <td className="text-nowrap">
+                                  {program?.["Episode Title"] || 'N/A'}
+                                </td>
+                                <td>
+                                  {Array.from(info.networks).map((network, idx) => (
+                                    <Badge key={idx} bg="secondary" className="me-1">
+                                      {network}
+                                    </Badge>
+                                  ))}
+                                </td>
+                                <td>
+                                  <Badge bg="info" className="fw-normal">
+                                    {program?.Feed || 'N/A'}
+                                  </Badge>
+                                </td>
+                                <td>
+                                  <Badge bg="danger" pill>
+                                    {info.count}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </Table>
                   </div>
-                  {/* Mensaje cuando no hay resultados */}
-                  {!filteredPrograms.length && (
+                  {Array.from(duplicates.values()).filter(v => v.count > 1).length === 0 && (
                     <div className="text-center py-4">
                       <FiXCircle className="display-6 text-muted mb-3" />
-                      <p className="text-muted">No programs found with current filters</p>
+                      <p className="text-muted">No duplicate programs found with current filters</p>
                     </div>
                   )}
                 </Card.Body>
@@ -1067,251 +1698,74 @@ const ExecutiveDashboard = () => {
         </Col>
       </Row>
 
+      {/* Tabla de programas */}
       <Accordion activeKey={showDetails ? 'details' : null}>
-        <Row className="g-4 mb-5">
-          <Col xl={12}>
-            <Card className="chart-card">
-              <Tabs defaultActiveKey="grafico" className="mb-3">
-                {/* Pestaña del Gráfico */}
-                <Tab eventKey="grafico" title={<span><FiBarChart2 className="me-1" />Graphic</span>}>
-                  <Card.Header className="chart-header">
-                    <h5>Distribution of Duplicate Programs</h5>
-                  </Card.Header>
-                  <Card.Body>
-                    <div style={{ height: '400px' }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          layout="vertical"
-                          data={Array.from(duplicates.entries())
-                            .filter(([_, info]) => info.count > 1)
-                            .map(([key, info]) => ({
-                              name: key.split('-')[0], // Show Code
-                              count: info.count,
-                              networks: Array.from(info.networks).join(', ')
-                            }))}
-                          margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
-                          <XAxis
-                            type="number"
-                            tick={{ fill: '#495057', fontSize: 12 }}
-                            domain={[0, 'auto']}
-                            axisLine={{ stroke: '#dee2e6' }}
-                            tickLine={{ stroke: '#dee2e6' }}
-                          />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            width={140}
-                            tick={{ fill: '#495057', fontSize: 12, fontWeight: 500 }}
-                            axisLine={{ stroke: '#dee2e6' }}
-                            tickLine={{ stroke: '#dee2e6' }}
-                          />
-                          <Tooltip
-                            content={({ active, payload, label }) => {
-                              if (active && payload && payload.length) {
-                                return (
-                                  <div className="custom-tooltip" style={{
-                                    backgroundColor: '#fff',
-                                    padding: '10px',
-                                    border: '1px solid #dee2e6',
-                                    borderRadius: '4px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                  }}>
-                                    <p style={{
-                                      margin: '0 0 5px',
-                                      fontWeight: 'bold',
-                                      color: '#495057'
-                                    }}>
-                                      Show Code: {label}
-                                    </p>
-                                    <p style={{
-                                      margin: '0 0 5px',
-                                      color: '#6c757d'
-                                    }}>
-                                      Duplicados: {payload[0].value}
-                                    </p>
-                                    <p style={{
-                                      margin: '0',
-                                      color: '#6c757d',
-                                      fontSize: '12px'
-                                    }}>
-                                      Networks: {payload[0].payload.networks}
-                                    </p>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                          />
-                          <Bar
-                            dataKey="count"
-                            name="Duplicados"
-                          >
-                            {Array.from(duplicates.entries())
-                              .filter(([_, info]) => info.count > 1)
-                              .map((entry, index) => {
-                                const count = entry[1].count;
-                                let color;
-                                // Escala de colores basada en la cantidad de duplicados
-                                if (count > 4) {
-                                  color = '#dc3545'; // Rojo - Crítico
-                                } else if (count > 3) {
-                                  color = '#000fff'; // Azul - Alto
-                                } else if (count > 2) {
-                                  color = '#ffc107'; // Amarillo - Medio
-                                } else {
-                                  color = '#20c997'; // Verde - Bajo
-                                }
-                                return (
-                                  <Cell
-                                    key={`cell-${index}`}
-                                    fill={color}
-                                    style={{
-                                      filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.1))',
-                                      cursor: 'pointer'
-                                    }}
-                                  />
-                                );
-                              })}
-                          </Bar>
-                          <Legend
-                            content={({ payload }) => (
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                padding: '10px'
-                              }}>
-                                {[
-                                  { color: '#20c997', label: '2 Network' },
-                                  { color: '#ffc107', label: '3 Network' },
-                                  { color: '#000fff', label: '4 Network' },
-                                  { color: '#dc3545', label: '5+ Network' }
-                                ].map((item, index) => (
-                                  <div key={index} style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    marginRight: '20px'
-                                  }}>
-                                    <div style={{
-                                      width: '12px',
-                                      height: '12px',
-                                      backgroundColor: item.color,
-                                      marginRight: '5px',
-                                      borderRadius: '2px'
-                                    }} />
-                                    <span style={{
-                                      color: '#6c757d',
-                                      fontSize: '12px'
-                                    }}>
-                                      {item.label}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </Card.Body>
-                  <Card.Footer className="text-muted">
-                    <small>The colors indicate the severity of the duplication: Green (2), Yellow (3), Blue (4), Red (5+)</small>
-                  </Card.Footer>
-                </Tab>
-
-                {/* Pestaña de la Tabla */}
-                <Tab eventKey="tabla" title={<span><FiMonitor className="me-1" />Table
-                  <Badge bg="dark" pill>{Array.from(duplicates.entries()).filter(([_, info]) => info.count > 1).length}</Badge>
-                </span>}>
-                  <Card.Header className="details-header">
-                    <h5>Table Distribution of Duplicate Programs</h5>
-                  </Card.Header>
-                  <Card.Body>
-                    <div className="table-responsive">
-                      <Table striped bordered hover responsive>
-                        <thead>
-                          <tr>
-                            <th>Show Code</th>
-                            <th>Title</th>
-                            <th>Network</th>
-                            <th>Feed</th>
-
-
-                            <th>Duplicates</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Array.from(duplicates.entries())
-                            .filter(([_, info]) => info.count > 1)
-                            .map(([key, info]) => {
-                              const [showCode, date, time] = key.split('-');
-                              return (
-                                <tr key={key}>
-                                  <td>
-                                    <Badge bg="primary" className="fw-normal">
-                                      {showCode}
-                                    </Badge>
-                                  </td>
-                                  <td className="text-nowrap">
-                                    {filteredPrograms.find(p => p["Show Code"] === showCode)?.["Episode Title"] || 'N/A'}
-                                  </td>
-                                  <td>
-                                    {Array.from(info.networks).map((network, idx) => (
-                                      <Badge
-                                        key={idx}
-                                        bg="secondary"
-                                        className="me-1"
-                                        style={{ opacity: 0.8 }}
-                                      >
-                                        {network}
-                                      </Badge>
-                                    ))}
-                                  </td>
-                                  <td>
-                                    <Badge
-                                      bg={getFeedColor(filteredPrograms.find(p => p["Show Code"] === showCode)?.Feed)}
-                                      className="fw-normal"
-                                    >
-                                      {filteredPrograms.find(p => p["Show Code"] === showCode)?.Feed || 'N/A'}
-                                    </Badge>
-                                  </td>
-
-
-                                  <td>
-                                    <Badge
-                                      bg={getDuplicateColor(info.count)}
-                                      pill
-                                    >
-                                      {info.count}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </Table>
-                    </div>
-                    {Array.from(duplicates.values()).filter(v => v.count > 1).length === 0 && (
-                      <div className="empty-state">
-                        <FiXCircle className="empty-icon" />
-                        <h5>No hay resultados</h5>
-                        <p className="text-muted">No duplicate programs were found with the current filters.</p>
-                      </div>
-                    )}
-                  </Card.Body>
-                </Tab>
-              </Tabs>
-            </Card>
-          </Col>
-        </Row>
-
-
+        <Card className="programs-accordion">
+          <Accordion.Item eventKey="details">
+            <Card.Header className="details-header">
+              <Stack direction="horizontal" className="justify-content-between align-items-center w-100 flex-wrap">
+                <h5 className="mb-0">Programs Table</h5>
+                <Badge bg="dark" pill>{filteredData.length}</Badge>
+              </Stack>
+            </Card.Header>
+            <Accordion.Body>
+              <Table striped bordered hover responsive>
+                <thead>
+                  <tr>
+                    <th>Show Code</th>
+                    <th>Episode Title</th>
+                    <th>Network</th>
+                    <th>Feed</th>
+                    <th>Start Date</th>
+                    <th>Start Time</th>
+                    <th>Duration</th>
+                    <th>Type</th>
+                    <th>Platform</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.map((program, index) => (
+                    <tr
+                      key={index}
+                      onClick={() => {
+                        setSelectedPrograms([program]);
+                        setShowModal(true);
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>{program["Show Code"]}</td>
+                      <td>{program["Episode Title"]}</td>
+                      <td>{program.Network}</td>
+                      <td>{program.Feed}</td>
+                      <td>{program["Start Date"]}</td>
+                      <td>{program["Start Time"]}</td>
+                      <td>{program.Duration}</td>
+                      <td>
+                        <Badge bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
+                          {program.LTSA}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
+                          {program.EMISION}
+                        </Badge>
+                      </td>
+                      <td>{program.Status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              {!filteredData.length && (
+                <div className="text-center py-4">
+                  <FiXCircle className="display-6 text-muted mb-3" />
+                  <p className="text-muted">No programs found with current filters</p>
+                </div>
+              )}
+            </Accordion.Body>
+          </Accordion.Item>
+        </Card>
       </Accordion>
-
-
     </Container>
   );
 };

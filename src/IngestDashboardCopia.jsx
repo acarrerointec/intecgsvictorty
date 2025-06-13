@@ -265,6 +265,9 @@ const IngestDashboard = () => {
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedTypePrograms, setSelectedTypePrograms] = useState([]);
   const [clickedType, setClickedType] = useState('');
+
+
+  
   // Función para manejar el clic en las barras del gráfico de tipos
   const handleTypeBarClick = (data) => {
     if (data && data.activePayload && data.activePayload.length > 0) {
