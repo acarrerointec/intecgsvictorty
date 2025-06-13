@@ -95,8 +95,9 @@ const filterData = (data, filters, rangeStart, rangeEnd) => {
       ? searchMatches(item, filters.search)
       : true;
 
-    const matchesNetwork = filters.Network
-      ? item.Network?.toString() === filters.Network.toString()
+    // Convertir network a string para comparación  
+    const matchesNetwork = filters.network
+      ? item.Network?.toString().trim() === filters.network.toString().trim()
       : true;
 
     const matchesShowCode = filters.showCode
@@ -283,7 +284,7 @@ const ExecutiveDashboard = () => {
 
   const [filters, setFilters] = useState({
     feed: '',
-    Network: '',
+    network: '',
     status: '',
     ltsa: '',
     search: '',
@@ -298,7 +299,7 @@ const ExecutiveDashboard = () => {
 
 
 
-  
+
 
   const [dateRange, setDateRange] = useState([{
     startDate: new Date(),
@@ -319,11 +320,17 @@ const ExecutiveDashboard = () => {
   // Referencia para el PDF
   const pdfRef = useRef();
 
-// Referencia para el componente de fecha
-// const dateRangeRef = useRef();
-useEffect(() => {
-  console.log("Sample of dashboardData:", dashboardData.slice(0, 5));
-}, [dashboardData]);
+  // Referencia para el componente de fecha
+  // const dateRangeRef = useRef();
+  useEffect(() => {
+    if (dashboardData.length > 0) {
+      const sampleWithNetwork = dashboardData.find(item => item.Network);
+      console.log("Ejemplo de dato con Network:", sampleWithNetwork);
+
+      const allNetworks = [...new Set(dashboardData.map(item => item.Network).filter(Boolean))];
+      console.log("Todos los valores únicos de Network:", allNetworks);
+    }
+  }, [dashboardData]);
 
   // Efecto para limpiar mensajes después de 5 segundos
   useEffect(() => {
@@ -344,7 +351,7 @@ useEffect(() => {
         ...item,
         start: processDate(item["Start Date"]),
         end: processDate(item["End Date"]),
-        Network: item.Network?.toString()
+        Network: item.Network?.toString().trim()
       }))
       .filter(item => !isNaN(item.start.getTime()) && !isNaN(item.end.getTime()));
 
@@ -416,13 +423,13 @@ useEffect(() => {
       }, {});
 
 
-const networkDistribution = filters.network
-  ? [{ name: filters.network.toString(), count: filtered.length }]
-  : Object.entries(networkData)
-    .map(([name, count]) => ({ name: name.toString(), count }))
-    .sort((a, b) => b.count - a.count);
+    const networkDistribution = filters.network
+      ? [{ name: filters.network.toString(), count: filtered.length }]
+      : Object.entries(networkData)
+        .map(([name, count]) => ({ name: name.toString(), count }))
+        .sort((a, b) => b.count - a.count);
     setIsFiltering(false);
-    
+
     return {
       filteredData: filtered,
       timeSlots: slots,
@@ -489,123 +496,116 @@ const networkDistribution = filters.network
   }), [filteredData, duplicates, showCodeNetworkMap]);
 
   // Función para manejar la carga de archivos
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+ const handleFileUpload = (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
 
-    setIsLoading(true);
-    setUploadMessage(null);
+  setIsLoading(true);
+  setUploadMessage(null);
 
-    const newFiles = files.map(file => ({
-      name: file.name,
-      lastModified: file.lastModified,
-      size: file.size
-    }));
+  const promises = files.map(file => 
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          // Convertir a JSON manteniendo los headers originales
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+          
+          // Normalizar los nombres de columnas
+          const normalizedData = jsonData.map(item => {
+            const normalized = {};
+            for (const key in item) {
+              // Normalizar el nombre de la columna
+              const cleanKey = key.trim().toUpperCase();
+              
+              // Mapear a nombres estándar
+              if (cleanKey === 'NETWORK' || cleanKey === 'CHANNEL' || cleanKey === 'NETWORK ID') {
+                normalized['Network'] = item[key]?.toString().trim();
+              } else if (REQUIRED_COLUMNS.map(c => c.toUpperCase()).includes(cleanKey)) {
+                normalized[REQUIRED_COLUMNS.find(c => c.toUpperCase() === cleanKey)] = item[key]?.toString().trim();
+              } else {
+                normalized[key] = item[key];
+              }
+            }
+            return normalized;
+          });
 
-    // Verificar archivos duplicados
-    const duplicates = newFiles.filter(newFile =>
-      uploadedFiles.some(existingFile =>
-        existingFile.name === newFile.name &&
-        existingFile.lastModified === newFile.lastModified &&
-        existingFile.size === newFile.size
-      )
-    );
+          // Verificar que tenga las columnas requeridas
+          const firstItemKeys = Object.keys(normalizedData[0] || {});
+          const missing = REQUIRED_COLUMNS.filter(col => !firstItemKeys.includes(col));
+          
+          if (missing.length > 0) {
+            throw new Error(`Missing columns: ${missing.join(', ')}`);
+          }
 
-    if (duplicates.length > 0) {
-      setUploadMessage({
-        type: 'warning',
-        text: `Files already uploaded: ${duplicates.map(f => f.name).join(', ')}`
-      });
-      setIsLoading(false);
-      return;
-    }
+          resolve({ file, data: normalizedData });
+        } catch (error) {
+          resolve({ file, error: error.message });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    })
+  );
 
+  Promise.all(promises).then(results => {
     const validFiles = [];
     const allValidData = [];
     const errorMessages = [];
 
-    const promises = files.map(file =>
-      new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-            // Verificar columnas requeridas
-            const headers = Object.keys(jsonData[0] || {}).map(h => h.trim().toLowerCase());
-            const missing = REQUIRED_COLUMNS.filter(col =>
-              !headers.includes(col.toLowerCase())
-            );
-
-            if (missing.length > 0) {
-              errorMessages.push(`${file.name}: missing columns - ${missing.join(', ')}`);
-              resolve(); // archivo inválido, no lo cargamos
-            } else {
-              validFiles.push(file);
-              allValidData.push(...jsonData);
-              resolve();
-            }
-          } catch (error) {
-            errorMessages.push(`${file.name}: error processing file - ${error.message}`);
-            resolve();
-          }
-        };
-        reader.onerror = () => {
-          errorMessages.push(`${file.name}: error reading file`);
-          resolve();
-        };
-        reader.readAsArrayBuffer(file);
-      })
-    );
-
-    Promise.all(promises).then(() => {
-      if (allValidData.length > 0) {
-        const combined = [...dashboardData, ...allValidData];
-
-        // Eliminar duplicados basados en columnas clave
-        const unique = combined.filter((item, index, self) =>
-          index === self.findIndex(other =>
-            COLUMNS_TO_COMPARE.every(key =>
-              (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
-            )
-          )
-        );
-
-        const updatedFiles = [...uploadedFiles, ...validFiles.map(file => ({
-          name: file.name,
-          lastModified: file.lastModified,
-          size: file.size
-        }))];
-
-        setDashboardData(unique);
-        localStorage.setItem('executiveDashboardData', JSON.stringify(unique));
-
-        setUploadedFiles(updatedFiles);
-        localStorage.setItem('executiveDashboardDataFiles', JSON.stringify(updatedFiles));
-
-        updateDateRange(unique);
+    results.forEach(result => {
+      if (result.error) {
+        errorMessages.push(`${result.file.name}: ${result.error}`);
+      } else {
+        validFiles.push(result.file);
+        allValidData.push(...result.data);
       }
-
-      // Mostrar mensajes de resultado
-      if (errorMessages.length > 0) {
-        setUploadMessage({
-          type: allValidData.length > 0 ? 'warning' : 'danger',
-          text: `Some files were rejected:\n${errorMessages.join('\n')}`
-        });
-      } else if (allValidData.length > 0) {
-        setUploadMessage({
-          type: 'success',
-          text: 'Files uploaded successfully.'
-        });
-      }
-
-      setIsLoading(false);
-      e.target.value = '';
     });
-  };
+
+    if (allValidData.length > 0) {
+      const combined = [...dashboardData, ...allValidData];
+      
+      // Eliminar duplicados
+      const unique = combined.filter((item, index, self) =>
+        index === self.findIndex(other =>
+          COLUMNS_TO_COMPARE.every(key =>
+            (item[key]?.toString().trim() || '') === (other[key]?.toString().trim() || '')
+          )
+        )
+      );
+
+      setDashboardData(unique);
+      localStorage.setItem('executiveDashboardData', JSON.stringify(unique));
+
+      setUploadedFiles(prev => [...prev, ...validFiles.map(f => ({
+        name: f.name,
+        lastModified: f.lastModified,
+        size: f.size
+      }))]);
+      
+      updateDateRange(unique);
+    }
+
+    // Mostrar mensajes
+    if (errorMessages.length > 0) {
+      setUploadMessage({
+        type: allValidData.length > 0 ? 'warning' : 'danger',
+        text: `Some files had issues:\n${errorMessages.join('\n')}`
+      });
+    } else if (allValidData.length > 0) {
+      setUploadMessage({
+        type: 'success',
+        text: 'Files uploaded successfully!'
+      });
+    }
+
+    setIsLoading(false);
+    e.target.value = '';
+  });
+};
 
   // Función para eliminar un archivo cargado
   const handleRemoveFile = (fileToRemove) => {
@@ -847,7 +847,7 @@ const networkDistribution = filters.network
                   <td><strong>{column}</strong></td>
                   <td>
                     {column === 'Feed' && 'Feed number or identifier'}
-                    {column === 'Network' && 'Channel number'}
+                    {column === 'Network' && 'Network number or identifier'}
                     {column === 'Show Code' && 'Unique identifier for the content'}
                     {column === 'Program' && 'Program identifier'}
                     {column === 'Title #' && 'Title number'}
@@ -892,7 +892,7 @@ const networkDistribution = filters.network
                 <th>Start Time</th>
                 <th>Duration</th>
                 <th>Type</th>
-                <th>Platform</th>
+              
               </tr>
             </thead>
             <tbody>
@@ -909,11 +909,7 @@ const networkDistribution = filters.network
                       {program.LTSA}
                     </Badge>
                   </td>
-                  <td>
-                    <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
-                      {program.EMISION}
-                    </Badge>
-                  </td>
+              
                 </tr>
               ))}
             </tbody>
@@ -1233,10 +1229,10 @@ const networkDistribution = filters.network
               </Card.Body>
             </Card>
           </Col>
-        
+
         ))}
 
-        
+
       </Row>
 
       {/* Gráficos principales */}
@@ -1453,7 +1449,11 @@ const networkDistribution = filters.network
                             >
                               <td>{program["Show Code"]}</td>
                               <td>{program["Episode Title"]}</td>
-                              <td>{program.Network}</td>
+                              <td>{program.Network 
+                                ? program.Network
+                                : <span className="text-muted">Unknown Network</span> 
+                                  
+                                }</td>  
                               <td>{program.Feed}</td>
                               <td>{program["Start Time"]}</td>
                               <td>{program.Duration}</td>
