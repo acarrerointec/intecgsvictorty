@@ -978,7 +978,7 @@ const ExecutiveDashboard = () => {
         <Col md={8}>
           <Stack direction="horizontal" gap={3} className="align-items-center">
             <div>
-              <h3 className="mb-1">Graphic Report Program</h3>
+              <h3 className="mb-1">Program Report Graphic  </h3>
               <div className="date-display">
                 <FiCalendar className="me-3" />
                 {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
@@ -1208,12 +1208,8 @@ const ExecutiveDashboard = () => {
           { title: 'Live', value: metrics.live, icon: <FiBarChart2 />, color: 'danger' },
           { title: 'Tape', value: metrics.tape, icon: <FiBarChart2 />, color: 'secondary' },
           { title: 'Short Turnaround', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
-          {/*
-          { title: 'Duplicate Programs', value: metrics.duplicates, icon: <FiCopy />, color: 'danger' },
-          { title: 'Single Broadcast', value: metrics.programsSingles, icon: <FiAirplay />, color: 'success' }
-
-        
-      */}
+         
+        {title: 'Show Code', value: metrics.duplicates, icon: <FiBarChart2 />, color: 'primary' }
         ].map((metric, index) => (
           <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
@@ -1276,8 +1272,9 @@ const ExecutiveDashboard = () => {
                   </div>
 
                   <div className="d-flex align-items-center feed-filter">
-                    <small className="me-2">Feeds:</small>
+                    <small className="me-2">Networl:</small>
                     <div className="d-flex flex-wrap gap-1 feed-badges">
+                      
                       {['A', 'B', 'C', 'D', 'E', 'U'].map(feed => (
                         <Badge
                           key={feed}
@@ -1406,17 +1403,18 @@ const ExecutiveDashboard = () => {
                       <div className="mb-4">
                         <h6 className="mb-3">Distribution by Feed</h6>
                         <div className="d-flex flex-wrap gap-2">
-                          {['A', 'B', 'C', 'D', 'E', 'U'].map((feed, index) => {
-                            const count = filteredData.filter(program => program.Feed === feed).length;
+                              
+                          {['9', '14', '17', '53', '93', '109', '171', '173', '177', '178', '179', '193', '214', '314', '315', '417', '418', '426', '428', '651', '653', '654', '691', '692', '693'].map((network, index) => {
+                            const count = filteredData.filter(program => program.Network === network).length;
                             return (
                               <Badge
-                                key={feed}
+                                key={network}
                                 bg="light"
                                 text="dark"
                                 className="p-2"
                                 style={{ borderLeft: `4px solid ${COLORS[index % COLORS.length]}` }}
                               >
-                                {feed}: {count} programs
+                                {network}: {count} programs
                               </Badge>
                             );
                           })}
