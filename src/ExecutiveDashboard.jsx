@@ -18,14 +18,13 @@ import {
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, PieChart,
-  Pie, Cell
+  Tooltip, Legend, ResponsiveContainer,  Cell
 } from 'recharts';
 import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock, FiList,
   FiTv, FiFilm, FiType, FiInfo, FiBarChart2, FiCopy, FiX, FiCheck,
-  FiXCircle, FiAirplay, FiUpload, FiFile
+  FiXCircle, FiUpload
 } from 'react-icons/fi';
 import { DateRangePicker } from 'react-date-range';
 import html2canvas from 'html2canvas';
