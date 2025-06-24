@@ -1210,6 +1210,8 @@ const ExecutiveDashboard = () => {
           { title: 'Short Turnaround', value: metrics.short, icon: <FiBarChart2 />, color: 'warning' },
          
         {title: 'Show Code', value: metrics.duplicates, icon: <FiBarChart2 />, color: 'primary' }
+     
+
         ].map((metric, index) => (
           <Col xl={3} lg={4} md={6} key={index}>
             <Card className={`metric-card metric-${metric.color}`}>
@@ -1430,7 +1432,7 @@ const ExecutiveDashboard = () => {
                             <th>Start Time</th>
                             <th>Duration</th>
                             <th>Type</th>
-                            <th>Platform</th>
+                          
                             <th>Status</th>
                           </tr>
                         </thead>
@@ -1460,11 +1462,7 @@ const ExecutiveDashboard = () => {
                                   {program.LTSA}
                                 </Badge>
                               </td>
-                              <td>
-                                <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
-                                  {program.EMISION}
-                                </Badge>
-                              </td>
+                           
                               <td>{program.Status}</td>
                             </tr>
                           ))}
@@ -1721,7 +1719,7 @@ const ExecutiveDashboard = () => {
                     <th>Start Time</th>
                     <th>Duration</th>
                     <th>Type</th>
-                    <th>Platform</th>
+                    
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -1747,11 +1745,7 @@ const ExecutiveDashboard = () => {
                           {program.LTSA}
                         </Badge>
                       </td>
-                      <td>
-                        <Badge bg={program.EMISION === 'PLATAFORMA' ? 'primary' : 'dark'}>
-                          {program.EMISION}
-                        </Badge>
-                      </td>
+                     
                       <td>{program.Status}</td>
                     </tr>
                   ))}
