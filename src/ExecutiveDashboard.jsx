@@ -278,6 +278,11 @@ const ExecutiveDashboard = () => {
   const [selectedTypePrograms, setSelectedTypePrograms] = useState([]);
   const [clickedType, setClickedType] = useState('');
 
+  // Programas tape seleccionados
+const [showTapeModal, setShowTapeModal] = useState(false);
+const [selectedDayPrograms, setSelectedDayPrograms] = useState([]);
+const [selectedDayDate, setSelectedDayDate] = useState(null);
+
   // Estado para controlar el modal de información de archivo
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -973,6 +978,61 @@ const ExecutiveDashboard = () => {
         </Modal.Body>
       </Modal>
 
+
+          {/* Modal for Tape Programs Details */}
+<Modal show={showTapeModal} onHide={() => setShowTapeModal(false)} size="xl" scrollable>
+  <Modal.Header closeButton className="bg-light">
+    <Modal.Title>
+      <FiCalendar className="me-2" />
+      Tape Programs for {selectedDayDate?.toLocaleDateString('es-ES', { 
+        weekday: 'long', 
+        day: '2-digit', 
+        month: 'long', 
+        year: 'numeric' 
+      })}
+      <Badge bg="success" className="ms-3">
+        {selectedDayPrograms.length} {selectedDayPrograms.length === 1 ? 'program' : 'programs'}
+      </Badge>
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Table striped bordered hover responsive>
+      <thead>
+        <tr>
+          <th>Show Code</th>
+          <th>Episode Title</th>
+          <th>Network</th>
+          <th>Feed</th>
+          <th>Start Time</th>
+          <th>Duration</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {selectedDayPrograms.map((program, index) => (
+          <tr key={index}>
+            <td>{program["Show Code"]}</td>
+            <td>{program["Episode Title"]}</td>
+            <td>{program.Network}</td>
+            <td>{program.Feed}</td>
+            <td>{program["Start Time"]}</td>
+            <td>{program.Duration}</td>
+            <td>{program.Status}</td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+    {selectedDayPrograms.length === 0 && (
+      <div className="text-center py-4">
+        <FiXCircle className="display-6 text-muted mb-3" />
+        <p className="text-muted">No Tape programs found for this day</p>
+      </div>
+    )}
+  </Modal.Body>
+</Modal>
+
+
+
       {/* Encabezado del dashboard */}
       <Row className="dashboard-header align-items-center mb-4">
         <Col md={8}>
@@ -1482,6 +1542,123 @@ const ExecutiveDashboard = () => {
           </Card>
         </Col>
       </Row>
+
+{/* Gráfico de programas Tape en 15 días */}
+<Row className="g-4 mb-5">
+  <Col xl={12}>
+    <Card className="chart-card">
+      <Card.Header className="chart-header">
+        <FiCalendar className="me-2" />
+        Tape Programs Over 15 Days
+      </Card.Header>
+      <Card.Body>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart
+            data={useMemo(() => {
+              // Calculate 15-day date range
+              const startDate = new Date(dateRange[0].startDate);
+              const endDate = new Date(dateRange[0].endDate);
+              
+              // Adjust if range is less than 15 days
+              const rangeDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+              const daysToShow = Math.min(15, rangeDays);
+              
+              // Create daily buckets
+              const dailyData = Array(daysToShow).fill().map((_, i) => {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                date.setHours(0, 0, 0, 0);
+                
+                const nextDay = new Date(date);
+                nextDay.setDate(nextDay.getDate() + 1);
+                
+                // Filter Tape programs for this day
+                const dayPrograms = filteredData.filter(program => 
+                  program.LTSA === 'Tape' && 
+                  program.start >= date && 
+                  program.start < nextDay
+                );
+                
+                return {
+                  date: date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+                  count: dayPrograms.length,
+                  fullDate: date,
+                  programs: dayPrograms
+                };
+              });
+              
+              return dailyData;
+            }, [filteredData, dateRange])}
+            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+            onClick={(data) => {
+              if (data && data.activePayload && data.activePayload.length > 0) {
+                const clickedData = data.activePayload[0].payload;
+                setSelectedDayPrograms(clickedData.programs);
+                setSelectedDayDate(clickedData.fullDate);
+                setShowTapeModal(true);
+              }
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
+            <XAxis 
+              dataKey="date"
+              label={{
+                value: 'Date',
+                position: 'insideBottom',
+                offset: -50,
+                fontSize: 12
+              }}
+            />
+            <YAxis
+              label={{
+                value: 'Number of Tape Programs',
+                angle: -90,
+                position: 'insideLeft',
+                offset: 10,
+                fontSize: 12
+              }}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="custom-tooltip p-2 bg-white border rounded shadow">
+                      <p className="fw-bold mb-1">
+                        {data.fullDate.toLocaleDateString('es-ES', { 
+                          weekday: 'long', 
+                          day: '2-digit', 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </p>
+                      <p className="mb-0">Tape programs: <strong>{data.count}</strong></p>
+                      <small className="text-muted">Click for details</small>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Bar
+              dataKey="count"
+              name="Tape Programs"
+              fill="#28a745"
+              opacity={0.8}
+              animationDuration={1500}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="text-center mt-3">
+          <small className="text-muted">
+            Showing Tape programs distribution over {dateRange[0].startDate.toLocaleDateString()} - {dateRange[0].endDate.toLocaleDateString()}
+          </small>
+        </div>
+      </Card.Body>
+    </Card>
+  </Col>
+</Row>
+      
 
 
       {/* Gráfico de distribución por red */}
