@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container, Row, Col, Card, Form,
-  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal, Spinner
+  Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal
 } from 'react-bootstrap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,

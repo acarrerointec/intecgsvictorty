@@ -9,13 +9,14 @@ import {
     FaChevronRight 
 } from "react-icons/fa";
 import { useState } from "react";
-import ExecutiveDashboard from "./ExecutiveDashboard";
+
 import './ExecutiveDashboard.css';
 import IngestDashboardCopia from "./IngestDashboardCopia";
+import ProgramGraphic from "./ProgramGraphic";
 
 
 const Sidebar = () => {
-  const [activeComponent, setActiveComponent] = useState("IngestDashboard"); // Componente activo por defecto
+  const [activeComponent, setActiveComponent] = useState("ProgramGraphic"); // Componente activo por defecto
   const [isSidebarVisible, setIsSidebarVisible] = useState(true); // Estado para mostrar/ocultar el Sidebar
 
   return (
@@ -103,15 +104,15 @@ const Sidebar = () => {
                 <li className="nav-item">
                   <a 
                     href="#" 
-                    className={`nav-link d-flex align-items-center ${activeComponent === "ExecutiveDashboard" ? "active" : "text-white"}`} 
+                    className={`nav-link d-flex align-items-center ${activeComponent === "ProgramGraphic" ? "active" : "text-white"}`} 
                     style={{
                       fontSize: '0.85rem',
                       padding: '0.35rem 0.5rem',
                       borderRadius: '4px',
-                      backgroundColor: activeComponent === "ExecutiveDashboard" ? '#343a40' : 'transparent',
-                      boxShadow: activeComponent === "ExecutiveDashboard" ? '0px 4px 6px rgba(0, 0, 0, 0.2)' : 'none'
+                      backgroundColor: activeComponent === "ProgramGraphic" ? '#343a40' : 'transparent',
+                      boxShadow: activeComponent === "ProgramGraphic" ? '0px 4px 6px rgba(0, 0, 0, 0.2)' : 'none'
                     }}
-                    onClick={() => setActiveComponent("ExecutiveDashboard")}
+                    onClick={() => setActiveComponent("ProgramGraphic")}
                   >
                     <FaDatabase className="me-2" style={{ fontSize: '0.9rem' }} />
                     Program
@@ -203,8 +204,9 @@ const Sidebar = () => {
 
       {/* Contenedor para los componentes dinámicos */}
       <div className="flex-grow-1" style={{ backgroundColor: '#1E1E1E', height: '100vh', overflowY: 'auto' }}>
+        
+        {activeComponent === "ProgramGraphic" && < ProgramGraphic />}
          {activeComponent === "IngestDashboard" && <IngestDashboardCopia />}
-        {activeComponent === "ExecutiveDashboard" && <ExecutiveDashboard />}
        
       
       </div>
