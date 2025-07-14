@@ -1789,12 +1789,17 @@ const ProgramGraphic = () => {
       </Row>
 
       {/* Gráfico de distribución por red */}
+
+
       <Row ref={networkDistributionRef} className="network-distribution">
         <Col xl={12}>
           <Card className="chart-card">
             <Card.Header className="chart-header">
               <FiTv className="me-3" />
               Program Distribution by Network
+              <Badge bg="info" className="ms-2">
+                Total: {networkDistribution.reduce((sum, item) => sum + item.count, 0)} programs
+              </Badge>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
@@ -1803,12 +1808,28 @@ const ProgramGraphic = () => {
                     layout="vertical"
                     data={networkDistribution}
                     margin={{ top: 20, right: 30, left: 120, bottom: 60 }}
+                    onClick={(data) => {
+                      if (data && data.activePayload && data.activePayload.length > 0) {
+                        const clickedNetwork = data.activePayload[0].payload.name;
+                        const matchingPrograms = filteredData.filter(
+                          program => program.Network === clickedNetwork
+                        );
+                        setSelectedPrograms(matchingPrograms);
+                        setShowModal(true);
+                      }
+                    }}
                   >
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis
                       type="number"
                       tick={{ fill: '#6c757d' }}
                       domain={[0, 'auto']}
+                      label={{
+                        value: 'Number of Programs',
+                        position: 'bottom',
+                        offset: 10,
+                        fontSize: 12
+                      }}
                     />
                     <YAxis
                       type="category"
@@ -1816,48 +1837,123 @@ const ProgramGraphic = () => {
                       width={140}
                       tick={{ fill: '#6c757d' }}
                       interval={0}
+                      label={{
+                        value: 'Network',
+                        angle: -90,
+                        position: 'left',
+                        offset: 10,
+                        fontSize: 12
+                      }}
                     />
                     <Tooltip
-                      formatter={(value) => [`${value} programs`, 'Count']}
-                      cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const network = payload[0].payload.name;
+                          const count = payload[0].value;
+                          const liveCount = filteredData.filter(
+                            p => p.Network === network && p.LTSA === 'Live'
+                          ).length;
+                          const tapeCount = filteredData.filter(
+                            p => p.Network === network && p.LTSA === 'Tape'
+                          ).length;
+                          const shortCount = filteredData.filter(
+                            p => p.Network === network && p.LTSA === 'Short Turnaround'
+                          ).length;
+
+                          return (
+                            <div className="custom-tooltip p-3 bg-white border rounded shadow">
+                              <h6 className="mb-2">{network}</h6>
+                              <div className="d-flex justify-content-between mb-1">
+                                <span>Total:</span>
+                                <strong>{count}</strong>
+                              </div>
+                              <div className="d-flex justify-content-between mb-1">
+                                <span className="text-danger">Live:</span>
+                                <strong>{liveCount}</strong>
+                              </div>
+                              <div className="d-flex justify-content-between mb-1">
+                                <span className="text-success">Tape:</span>
+                                <strong>{tapeCount}</strong>
+                              </div>
+                              <div className="d-flex justify-content-between">
+                                <span className="text-warning">Short:</span>
+                                <strong>{shortCount}</strong>
+                              </div>
+                              <small className="d-block mt-2 text-muted">
+                                Click to view all programs
+                              </small>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
                     />
                     <Bar
                       dataKey="count"
                       name="Programs by Network"
-                      fill="#2E86AB"
                       radius={[0, 3, 3, 0]}
-                      onClick={handleTypeBarClick}
                     >
-                      {networkDistribution.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`#2E86AB${Math.min(50 + index * 20, 90)}`}
-                        />
-                      ))}
+                      {networkDistribution.map((entry, index) => {
+                        // Color basado en el porcentaje del total
+                        const totalPrograms = networkDistribution.reduce((sum, item) => sum + item.count, 0);
+                        const percentage = (entry.count / totalPrograms) * 100;
+                        let color;
+
+                        if (percentage > 20) color = '#2E86AB'; // Azul fuerte para redes con más del 20%
+                        else if (percentage > 10) color = '#3B8EA5'; // Azul medio para 10-20%
+                        else if (percentage > 5) color = '#4D9DBF'; // Azul claro para 5-10%
+                        else color = '#6FB4D2'; // Azul muy claro para menos del 5%
+
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={color}
+                            stroke="#fff"
+                            strokeWidth={1}
+                          />
+                        );
+                      })}
                     </Bar>
+                
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <Card.Footer className="text-muted">
-                <small>
-                  {filters.network
-                    ? `Showing results for network ${filters.network}`
-                    : 'Program distribution by television network'}
-                </small>
+                <div className="d-flex justify-content-between align-items-center">
+                  <small>
+                    {filters.network
+                      ? `Showing results for network ${filters.network}`
+                      : 'Program distribution by television network'}
+                  </small>
+                  <div className="network-stats">
+                    <Badge bg="danger" className="me-2">
+                      Live: {filteredData.filter(p => p.LTSA === 'Live').length}
+                    </Badge>
+                    <Badge bg="success" className="me-2">
+                      Tape: {filteredData.filter(p => p.LTSA === 'Tape').length}
+                    </Badge>
+                    <Badge bg="warning">
+                      Short: {filteredData.filter(p => p.LTSA === 'Short Turnaround').length}
+                    </Badge>
+                  </div>
+                </div>
               </Card.Footer>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
+
+
+
       {/* Tabla de programas duplicados */}
       <Row className="g-4 mb-5">
         <Col xl={12}>
           <Card className="chart-card">
             <Tabs defaultActiveKey="chart" className="mb-3" responsive style={{ width: '100%', maxWidth: '100%' }}>
-              <Tab eventKey="chart" title={<span><FiBarChart2 className="me-1" />Chart</span>}>
+              <Tab eventKey="chart" title={<span><FiBarChart2 className="me-1" />Graphic Duplicate</span>}>
                 <Card.Header className="chart-header">
-                  <h5>Duplicate Programs Distribution</h5>
+                  <h5>Duplicate Programs Distribution Show Code</h5>
                 </Card.Header>
                 <Card.Body>
                   <div style={{ height: '400px' }}>
