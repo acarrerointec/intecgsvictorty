@@ -70,9 +70,13 @@
   color: rgb(247, 243, 243);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   transition: transform 0.2s;
+  margin: 0.5rem;
   
+  display: flex;
+  padding: auto;
   &:hover {
     transform: translateY(-3px);
+
   }
   
   &.metric-primary { background: linear-gradient(135deg, #2E86AB, #3FA9F5); }
@@ -90,6 +94,7 @@
   background-color: #f8f0f0;
   box-shadow: 0 2px 8px rgba(246, 244, 244, 0.1);
   transition: transform 0.3s ease;
+  padding: auto;
 }
 
 .metrics-grid .metric-card:hover {
@@ -97,7 +102,7 @@
 }
 
 .metric-card .metric-icon {
-  font-size: 24px;
+  font-size: 18px;
   color: #040404;
 }
 
