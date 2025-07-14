@@ -59,7 +59,7 @@ Material UI 7
 
 Bootstrap 5
 
-Recharts & Victory
+Recharts
 
 Excel/PDF export support
 
@@ -122,6 +122,6 @@ Material UI 7
 
 Bootstrap 5
 
-Recharts & Victory
+Recharts
 
 Soporte para exportar Excel/PDF
