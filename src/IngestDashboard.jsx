@@ -1,3 +1,36 @@
+/**
+ * COMPONENTE: IngestDashboard.jsx
+ * 
+ * DESCRIPCIÓN:
+ * Dashboard ejecutivo para análisis de programación televisiva que permite visualizar
+ * y analizar datos de programación de múltiples redes y feeds.
+ * 
+ * FUNCIONALIDADES PRINCIPALES:
+ * - Visualización de métricas clave (contenido total, programas en vivo, grabados, etc.)
+ * - Filtrado avanzado por fecha, red, tipo de programa, etc.
+ * - Gráficos interactivos de distribución horaria y por redes
+ * - Tabla resumen y vista detallada de programas
+ * - Detección de programas duplicados
+ * - Carga múltiple de archivos Excel con validación
+ * - Exportación a PDF
+ * 
+ * ESTRUCTURA DE DATOS REQUERIDA:
+ * - El componente espera archivos Excel con columnas específicas (ver REQUIRED_COLUMNS)
+ * - Los datos deben incluir información sobre programas, horarios, redes y tipos de emisión
+ * 
+ * PROPS: Ninguno (este es un componente autónomo)
+ * 
+ * ESTADO:
+ * - Gestiona múltiples estados para filtros, datos cargados, selecciones UI y modales
+ * - Persiste datos en localStorage para mantener la sesión entre recargas
+ * 
+ * DEPENDENCIAS EXTERNAS:
+ * - React-Bootstrap: Componentes UI
+ * - Recharts: Gráficos
+ * - xlsx: Procesamiento de Excel
+ * - date-fns: Manejo de fechas
+ */
+
 import { useState, useMemo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {

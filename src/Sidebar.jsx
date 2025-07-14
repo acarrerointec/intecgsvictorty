@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 
 import './ExecutiveDashboard.css';
-import IngestDashboardCopia from "./IngestDashboardCopia";
+import IngestDashboard from "./IngestDashboard";
 import ProgramGraphic from "./ProgramGraphic";
 
 
@@ -206,7 +206,7 @@ const Sidebar = () => {
       <div className="flex-grow-1" style={{ backgroundColor: '#1E1E1E', height: '100vh', overflowY: 'auto' }}>
         
         {activeComponent === "ProgramGraphic" && < ProgramGraphic />}
-         {activeComponent === "IngestDashboard" && <IngestDashboardCopia />}
+         {activeComponent === "IngestDashboard" && <IngestDashboard />}
        
       
       </div>
