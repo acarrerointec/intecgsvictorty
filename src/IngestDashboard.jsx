@@ -31,17 +31,24 @@
  * - date-fns: Manejo de fechas
  */
 
+// React y Hooks
 import { useState, useMemo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
+
+// Componentes UI de Bootstrap y Recharts 
 import {
   Container, Row, Col, Card, Form,
   Button, Badge, Accordion, Stack, Collapse, Table, Tabs, Tab, Modal
 } from 'react-bootstrap';
+
+// Graficos
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart,
   Pie, Cell
 } from 'recharts';
+
+// Iconos
 import {
   FiDownload, FiRefreshCw, FiEye, FiEyeOff, FiSearch,
   FiCalendar, FiSliders, FiMonitor, FiClock,
@@ -49,19 +56,33 @@ import {
   FiXCircle, FiTv, FiList,
   FiUpload
 } from 'react-icons/fi';
-import { DateRangePicker } from 'react-date-range';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
-import * as XLSX from 'xlsx';
+// Selector de rango de fechas
+import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import es from 'date-fns/locale/es';
-// import data from './data/DataMediaTraker.json';
+
+// Funciones de utilidades
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
+
+// Estilos
 import './IngestDashboard.css';
 
 
+// Requerimientos de columnas para los archivos Excel
+  const REQUIRED_COLUMNS = [
+    'Code', 'Description', 'Type', 'Feed', 'Date', 'Duration',
+    'Status', 'Motion', 'Edm Qc', 'Tedial', 'Origin'
+  ];
 
+// Columnas a comparar para evitar duplicados
+  const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
+
+
+// FUNCIONES DE UTILIDAD  
 /**
  * Convierte una fecha en formato `DD/MM/YYYY HH:mm` a un objeto `Date`.
  * Si la conversión falla, devuelve la fecha actual.
@@ -95,6 +116,50 @@ const processDate = (dateString) => {
     console.error('Error procesando fecha:', dateString);
     return new Date();
   }
+};
+
+/**
+ * Filtra los datos según los filtros aplicados y el rango de fechas.
+ * @param {Array} dashboardData - Lista de contenidos a filtrar.
+ * @param {Object} filters - Filtros aplicados (type, feed, status, search).
+ * @param {Date} rangeStart - Fecha de inicio del rango.
+ * @param {Date} rangeEnd - Fecha de fin del rango.
+ * @returns {Array} - Lista de contenidos filtrados.
+ */
+const filterData = (dashboardData, filters, rangeStart, rangeEnd) => {
+  return dashboardData.filter(item => {
+    const itemDate = item.start;
+    const matchesDate = itemDate >= rangeStart && itemDate <= rangeEnd;
+
+    const matchesSearch = filters.search
+      ? (item.Code?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item[" Description"]?.toLowerCase().includes(filters.search.toLowerCase()))
+      : true;
+
+    const matchesType = filters.type
+      ? item.Type?.toLowerCase().includes(filters.type.toLowerCase())
+      : true;
+
+    const matchesProgramType = filters.programType
+      ? (item.Type?.includes('Program - ') &&
+        item.Type?.includes(filters.programType))
+      : true;
+
+    const matchesFeed = filters.feed
+      ? item.Feed?.toString() === filters.feed
+      : true;
+
+    const matchesStatus = filters.status
+      ? item.Status?.toLowerCase().includes(filters.status.toLowerCase())
+      : true;
+
+    const matchesShowCode = filters.showCode
+      ? item.Code?.toLowerCase().includes(filters.showCode.toLowerCase())
+      : true;
+
+    return matchesDate && matchesSearch && matchesType && matchesProgramType &&
+      matchesFeed && matchesStatus && matchesShowCode;
+  });
 };
 
 /**
@@ -176,49 +241,6 @@ const processTapeData = (filteredData) => {
   };
 };
 
-/**
- * Filtra los datos según los filtros aplicados y el rango de fechas.
- * @param {Array} dashboardData - Lista de contenidos a filtrar.
- * @param {Object} filters - Filtros aplicados (type, feed, status, search).
- * @param {Date} rangeStart - Fecha de inicio del rango.
- * @param {Date} rangeEnd - Fecha de fin del rango.
- * @returns {Array} - Lista de contenidos filtrados.
- */
-const filterData = (dashboardData, filters, rangeStart, rangeEnd) => {
-  return dashboardData.filter(item => {
-    const itemDate = item.start;
-    const matchesDate = itemDate >= rangeStart && itemDate <= rangeEnd;
-
-    const matchesSearch = filters.search
-      ? (item.Code?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        item[" Description"]?.toLowerCase().includes(filters.search.toLowerCase()))
-      : true;
-
-    const matchesType = filters.type
-      ? item.Type?.toLowerCase().includes(filters.type.toLowerCase())
-      : true;
-
-    const matchesProgramType = filters.programType
-      ? (item.Type?.includes('Program - ') &&
-        item.Type?.includes(filters.programType))
-      : true;
-
-    const matchesFeed = filters.feed
-      ? item.Feed?.toString() === filters.feed
-      : true;
-
-    const matchesStatus = filters.status
-      ? item.Status?.toLowerCase().includes(filters.status.toLowerCase())
-      : true;
-
-    const matchesShowCode = filters.showCode
-      ? item.Code?.toLowerCase().includes(filters.showCode.toLowerCase())
-      : true;
-
-    return matchesDate && matchesSearch && matchesType && matchesProgramType &&
-      matchesFeed && matchesStatus && matchesShowCode;
-  });
-};
 
 /**
  * Componente para mostrar un control de filtro con etiqueta e ícono.
@@ -241,7 +263,6 @@ FilterControl.propTypes = {
   icon: PropTypes.element.isRequired,
   children: PropTypes.node.isRequired
 };
-
 
 
 
@@ -392,13 +413,7 @@ const IngestDashboard = () => {
 
 
 
-  const REQUIRED_COLUMNS = [
-    'Code', 'Description', 'Type', 'Feed', 'Date', 'Duration',
-    'Status', 'Motion', 'Edm Qc', 'Tedial', 'Origin'
-  ];
 
-
-  const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
 
   // Función para manejar la carga de archivos
 
