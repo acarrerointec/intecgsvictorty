@@ -413,3 +413,58 @@
     display: none !important;
   }
 }
+/* Prueba de datos numericos */
+
+.metrics-summary-card {
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.metrics-summary-table {
+  margin-bottom: 0;
+}
+
+.metrics-summary-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.metrics-summary-table td {
+  vertical-align: middle;
+}
+
+.metrics-summary-table .badge {
+  font-size: 1rem;
+  min-width: 50px;
+}
+
+
+/* Estilos unique-showcodes */
+.unique-showcodes-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.showcodes-table {
+  font-size: 0.9rem;
+}
+
+.showcodes-table th {
+  background-color: #f8f9fa;
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+
+.showcode-badge {
+  font-family: monospace;
+  font-size: 0.9em;
+  padding: 0.35em 0.6em;
+}
+
+.showcodes-table tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}

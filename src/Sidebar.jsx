@@ -6,14 +6,15 @@ import {
     FaTools, 
     FaUserTie, 
     FaChevronLeft, 
-    FaChevronRight 
+    FaChevronRight, 
+    FaRecordVinyl
 } from "react-icons/fa";
 import { useState } from "react";
 
 import './ExecutiveDashboard.css';
 import IngestDashboard from "./IngestDashboard";
 import ProgramGraphic from "./ProgramGraphic";
-
+import ProgramGraphicTape from "./ProgramGraphicTape"; // Asegúrate de importar el componente correcto
 
 const Sidebar = () => {
   const [activeComponent, setActiveComponent] = useState("ProgramGraphic"); // Componente activo por defecto
@@ -118,6 +119,23 @@ const Sidebar = () => {
                     Program
                   </a>
                 </li>
+                      <li className="nav-item">
+                  <a 
+                    href="#" 
+                    className={`nav-link d-flex align-items-center ${activeComponent === "ProgramGraphicTape" ? "active" : "text-white"}`} 
+                    style={{
+                      fontSize: '0.85rem',
+                      padding: '0.35rem 0.5rem',
+                      borderRadius: '4px',
+                      backgroundColor: activeComponent === "ProgramGraphicTape" ? '#343a40' : 'transparent',
+                      boxShadow: activeComponent === "ProgramGraphicTape" ? '0px 4px 6px rgba(0, 0, 0, 0.2)' : 'none'
+                    }}
+                    onClick={() => setActiveComponent("ProgramGraphicTape")}
+                  >
+                    <FaRecordVinyl className="me-2" style={{ fontSize: '0.9rem' }} />
+                    Programs Tape
+                  </a>
+                </li>
                 <li className="nav-item">
                   <a 
                     href="#" 
@@ -207,6 +225,7 @@ const Sidebar = () => {
         
         {activeComponent === "ProgramGraphic" && < ProgramGraphic />}
          {activeComponent === "IngestDashboard" && <IngestDashboard />}
+        {activeComponent === "ProgramGraphicTape" && <ProgramGraphicTape />}
        
       
       </div>

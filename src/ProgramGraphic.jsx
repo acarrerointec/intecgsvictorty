@@ -1965,136 +1965,120 @@ const ProgramGraphic = () => {
                 </Card.Header>
                 <Card.Body>
                   <div style={{ height: '400px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        layout="vertical"
-                        data={Array.from(duplicates.entries())
-                          .filter(([_, info]) => info.count > 1)
-                          .map(([key, info]) => ({
-                            name: key.split('-')[0], // Show Code
-                            count: info.count,
-                            networks: Array.from(info.networks).join(', '),
-                            networksCount: info.networks.size
-                          }))}
-                        margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          type="number"
-                          tick={{ fill: '#495057', fontSize: 12 }}
-                          domain={[0, 'auto']}
-                          label={{
-                            value: 'Number of Duplicates',
-                            position: 'bottom',
-                            offset: 10,
-                            fontSize: 12
-                          }}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          width={140}
-                          tick={{ fill: '#495057', fontSize: 12 }}
-                          label={{
-                            value: 'Show Code',
-                            angle: -90,
-                            position: 'left',
-                            offset: 10,
-                            fontSize: 12
-                          }}
-                        />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (active && payload && payload.length) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="custom-tooltip p-3 bg-white border rounded shadow">
-                                  <h6 className="mb-2">{label}</h6>
-                                  <div className="d-flex justify-content-between mb-1">
-                                    <span>Duplicates:</span>
-                                    <strong>{data.count}</strong>
-                                  </div>
-                                  <div className="d-flex justify-content-between mb-1">
-                                    <span>Networks:</span>
-                                    <strong>{data.networksCount}</strong>
-                                  </div>
-                                  <div className="mt-2">
-                                    <small className="text-muted">{data.networks}</small>
-                                  </div>
-                                  <small className="d-block mt-2 text-primary">
-                                    Click to view program details
-                                  </small>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Bar
-                          dataKey="count"
-                          name="Duplicates"
-                          onClick={(data) => {
-                            if (data && data.activePayload && data.activePayload.length > 0) {
-                              const showCode = data.activePayload[0].payload.name;
-                              const matchingPrograms = filteredData.filter(
-                                program => program["Show Code"] === showCode
-                              );
-                              setSelectedPrograms(matchingPrograms);
-                              setShowModal(true);
-                            }
-                          }}
-                        >
-                          {Array.from(duplicates.entries())
-                            .filter(([_, info]) => info.count > 1)
-                            .map(([key, info], index) => {
-                              const networksCount = info.networks.size;
-                              let color;
-                              if (networksCount > 4) color = '#dc3545'; // Rojo para 5+ redes
-                              else if (networksCount > 3) color = '#000fff'; // Azul para 4 redes
-                              else if (networksCount > 2) color = '#ffc107'; // Amarillo para 3 redes
-                              else color = '#20c997'; // Verde para 2 redes
-
-                              return (
-                                <Cell
-                                  key={`cell-${index}`}
-                                  fill={color}
-                                  stroke="#fff"
-                                  strokeWidth={1}
-                                />
-                              );
-                            })}
-                        </Bar>
-                        <Legend
-                          wrapperStyle={{ paddingTop: '10px' }}
-                          payload={[
-                            {
-                              value: '2 Networks',
-                              type: 'rect',
-                              color: '#20c997',
-                              id: '2-networks'
-                            },
-                            {
-                              value: '3 Networks',
-                              type: 'rect',
-                              color: '#ffc107',
-                              id: '3-networks'
-                            },
-                            {
-                              value: '4 Networks',
-                              type: 'rect',
-                              color: '#000fff',
-                              id: '4-networks'
-                            },
-                            {
-                              value: '5+ Networks',
-                              type: 'rect',
-                              color: '#dc3545',
-                              id: '5-plus-networks'
-                            }
-                          ]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height="100%">
+  <BarChart
+    layout="vertical"
+    data={Array.from(duplicates.entries())
+      .filter(([_, info]) => info.count > 1)
+      .map(([key, info]) => {
+        const showCode = key.split('-')[0];
+        const program = filteredData.find(p => p["Show Code"] === showCode);
+        return {
+          name: showCode,
+          count: info.count,
+          networks: Array.from(info.networks).join(', '),
+          networksCount: info.networks.size,
+          title: program?.["Episode Title"] || 'N/A'
+        };
+      })}
+    margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
+  >
+    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+    <XAxis
+      type="number"
+      tick={{ fill: '#495057', fontSize: 12 }}
+      domain={[0, 'auto']}
+      label={{
+        value: 'Number of Duplicates',
+        position: 'bottom',
+        offset: 10,
+        fontSize: 12
+      }}
+    />
+    <YAxis
+      type="category"
+      dataKey="name"
+      width={140}
+      tick={{ fill: '#495057', fontSize: 12 }}
+      label={{
+        value: 'Show Code',
+        angle: -90,
+        position: 'left',
+        offset: 10,
+        fontSize: 12
+      }}
+    />
+    <Tooltip
+      content={({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+          const data = payload[0].payload;
+          return (
+            <div className="custom-tooltip p-3 bg-white border rounded shadow">
+              <h6 className="mb-2">{label}</h6>
+              <p className="mb-1"><strong>Title:</strong> {data.title}</p>
+              <div className="d-flex justify-content-between mb-1">
+                <span>Duplicates:</span>
+                <strong>{data.count}</strong>
+              </div>
+              <div className="d-flex justify-content-between mb-1">
+                <span>Networks:</span>
+                <strong>{data.networksCount}</strong>
+              </div>
+              <div className="mt-2">
+                <small className="text-muted">{data.networks}</small>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      }}
+    />
+    <Bar
+      dataKey="count"
+      name="Duplicates"
+      onClick={(data) => {
+        if (data?.activePayload?.[0]?.payload) {
+          const showCode = data.activePayload[0].payload.name;
+          const matchingPrograms = filteredData.filter(
+            program => program["Show Code"] === showCode
+          );
+          setSelectedPrograms(matchingPrograms);
+          setShowModal(true);
+        }
+      }}
+    >
+      {Array.from(duplicates.entries())
+        .filter(([_, info]) => info.count > 1)
+        .map(([_, info], index) => {
+          const networksCount = info.networks.size;
+          let color;
+          if (networksCount > 4) color = '#dc3545';
+          else if (networksCount > 3) color = '#000fff';
+          else if (networksCount > 2) color = '#ffc107';
+          else color = '#20c997';
+          
+          return (
+            <Cell
+              key={`cell-${index}`}
+              fill={color}
+              stroke="#fff"
+              strokeWidth={1}
+            />
+          );
+        })}
+    </Bar>
+    <Legend
+      wrapperStyle={{ paddingTop: '10px' }}
+      payload={[
+        { value: '2 Networks', type: 'rect', color: '#20c997' },
+        { value: '3 Networks', type: 'rect', color: '#ffc107' },
+        { value: '4 Networks', type: 'rect', color: '#000fff' },
+        { value: '5+ Networks', type: 'rect', color: '#dc3545' }
+      ]}
+    />
+  </BarChart>
+</ResponsiveContainer>
+                    
                   </div>
                 </Card.Body>
               </Tab>
