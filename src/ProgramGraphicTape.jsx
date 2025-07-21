@@ -96,47 +96,38 @@ const COLUMNS_TO_COMPARE = [...REQUIRED_COLUMNS];
  * @param {string} dateString - Fecha en formato `DD-MM-YYYY`.
  * @returns {Date} - Objeto `Date` correspondiente o la fecha actual si ocurre un error.
  */
-// Modifica la función processDate para manejar correctamente las fechas
+// función processDate para manejar correctamente las fechas
 const processDate = (dateString) => {
     if (!dateString) return new Date();
 
     try {
-        // Intentar múltiples formatos
+        // Manejar formato DD-MM-YYYY (Argentina)
         if (dateString.includes('-')) {
-            const [day, month, year] = dateString.split('-');
-            // Asegurarse de usar UTC para evitar problemas de zona horaria
-            return new Date(Date.UTC(year, month - 1, day));
+            const [day, month, year] = dateString.split('-').map(Number);
+            // Crear fecha en hora local de Argentina (GMT-3)
+            return new Date(year, month - 1, day, 12, 0, 0); // Hora del mediodía para evitar cambios de día
         }
 
-        // Formato ISO (YYYY-MM-DD)
-        if (dateString.includes('/')) {
-            const [day, month, year] = dateString.split('/');
-            return new Date(Date.UTC(year, month - 1, day));
-        }
-
-        // Formato timestamp de Excel
-        if (!isNaN(dateString)) {
-            return new Date((dateString - 25569) * 86400 * 1000);
-        }
-
+        // Resto de formatos
         return new Date(dateString);
     } catch (error) {
-        console.error('Error procesando fecha:', dateString);
+        console.error('Error procesando fecha:', dateString, error);
         return new Date();
     }
 };
-
-// Modifica la función updateDateRange para mostrar correctamente el rango disponible
+//  función updateDateRange para mostrar correctamente el rango disponible
 const updateDateRange = (data) => {
     const dates = data
         .map(item => processDate(item["Start Date"]))
         .filter(date => !isNaN(date.getTime()));
 
     if (dates.length > 0) {
-        const minDate = new Date(Math.min(...dates.map(date => date.getTime())));
-        const maxDate = new Date(Math.max(...dates.map(date => date.getTime())));
+        // Ajustar para zona horaria Argentina
+        const argentinaOffset = -3 * 60 * 60 * 1000; // GMT-3 en milisegundos
 
-        // Ajustar para mostrar correctamente en la UI
+        const minDate = new Date(Math.min(...dates.map(date => date.getTime())) + argentinaOffset);
+        const maxDate = new Date(Math.max(...dates.map(date => date.getTime())) + argentinaOffset);
+
         setAvailableDateRange({
             minDate: new Date(minDate.setHours(0, 0, 0, 0)),
             maxDate: new Date(maxDate.setHours(23, 59, 59, 999))
@@ -147,14 +138,8 @@ const updateDateRange = (data) => {
             endDate: new Date(maxDate.setHours(23, 59, 59, 999)),
             key: 'selection'
         }]);
-        setTempDateRange([{
-            startDate: new Date(minDate.setHours(0, 0, 0, 0)),
-            endDate: new Date(maxDate.setHours(23, 59, 59, 999)),
-            key: 'selection'
-        }]);
     }
 };
-
 /**
  * Filtra los datos según los filtros aplicados y el rango de fechas.
  * @param {Array} data - Lista de programas a filtrar.
@@ -628,6 +613,41 @@ const ProgramGraphicTape = () => {
     // Función para aplicar el rango de fechas
     const toggleFilters = () => setShowFilters(!showFilters);
 
+    // Formaterador de fechas UI 
+
+    const formatDateForDisplay = (date) => {
+        if (!date || !(date instanceof Date) || isNaN(date.getTime())) return 'Invalid date';
+
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+
+        return `${day}/${month}/${year}`;
+    };
+
+    // Formateador de fechas para Excel
+    const formatExcelDate = (dateString) => {
+        if (!dateString) return 'N/A';
+
+        // Para fechas en formato DD-MM-YYYY
+        if (dateString.includes('-')) {
+            const [day, month, year] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        return dateString;
+    };
+// Formateador de fechas para Argentina
+    const formatDateArgentina = (date) => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return 'Fecha inválida';
+    
+    return date.toLocaleDateString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+};
     // Exportacion 
 
     // Función para generar el PDF
@@ -750,11 +770,15 @@ const ProgramGraphicTape = () => {
             const endDate = new Date(end);
             if (isNaN(startDate) || isNaN(endDate)) return 'Invalid date';
 
-            const options = { day: '2-digit', month: 'short' };
-            return startDate.toLocaleDateString('es-ES', options) +
-                (startDate.getTime() === endDate.getTime()
-                    ? ` ${startDate.getFullYear()}`
-                    : ` - ${endDate.toLocaleDateString('es-ES', options)} ${endDate.getFullYear()}`);
+            const options = { day: '2-digit', month: 'short', year: 'numeric' };
+
+            // Si es el mismo día
+            if (startDate.toDateString() === endDate.toDateString()) {
+                return startDate.toLocaleDateString('es-ES', options);
+            }
+
+            // Si son días diferentes
+            return `${startDate.toLocaleDateString('es-ES', options)} - ${endDate.toLocaleDateString('es-ES', options)}`;
         } catch {
             return 'Invalid date';
         }
@@ -1255,13 +1279,27 @@ const ProgramGraphicTape = () => {
                                             <div className="responsive-datepicker">
                                                 <DateRangePicker
                                                     ranges={tempDateRange}
-                                                    onChange={ranges => setTempDateRange([ranges.selection])}
+                                                    onChange={ranges => {
+                                                        // Ajustar para zona horaria Argentina
+                                                        const adjustForArgentina = (date) => {
+                                                            if (!date) return date;
+                                                            const adjusted = new Date(date);
+                                                            adjusted.setMinutes(adjusted.getMinutes() + adjusted.getTimezoneOffset() + 180); // +3 horas
+                                                            return adjusted;
+                                                        };
+
+                                                        setTempDateRange([{
+                                                            startDate: adjustForArgentina(ranges.selection.startDate),
+                                                            endDate: adjustForArgentina(ranges.selection.endDate),
+                                                            key: 'selection'
+                                                        }]);
+                                                    }}
                                                     locale={es}
                                                     rangeColors={['#2E86AB']}
                                                     showPreview={false}
                                                     showDateDisplay={false}
                                                     editableDateInputs
-                                                    moveRangeOnFirstSelection={false}
+                                                    moveRangeOnFirstPosition={false}
                                                     direction="horizontal"
                                                     minDate={availableDateRange.minDate}
                                                     maxDate={availableDateRange.maxDate}
@@ -1269,9 +1307,18 @@ const ProgramGraphicTape = () => {
                                             </div>
                                             {availableDateRange.minDate && availableDateRange.maxDate && (
                                                 <h3 className="text-muted d-block mt-1">
-                                                    Available range: {availableDateRange.minDate.toLocaleDateString()} - {availableDateRange.maxDate.toLocaleDateString()}
+                                                    Rango disponible: {`
+            ${availableDateRange.minDate.getDate().toString().padStart(2, '0')}/
+            ${(availableDateRange.minDate.getMonth() + 1).toString().padStart(2, '0')}/
+            ${availableDateRange.minDate.getFullYear()}
+        `} - {`
+            ${availableDateRange.maxDate.getDate().toString().padStart(2, '0')}/
+            ${(availableDateRange.maxDate.getMonth() + 1).toString().padStart(2, '0')}/
+            ${availableDateRange.maxDate.getFullYear()}
+        `}
                                                 </h3>
                                             )}
+
                                             <Button
                                                 variant="primary"
                                                 onClick={handleApplyDate}
@@ -1409,6 +1456,9 @@ const ProgramGraphicTape = () => {
                 ))}
             </Row>
 
+             <br/>
+         
+          {/* Tabla de Programas test
 
             <Row className="mb-4">
                 <Col xl={12}>
@@ -1522,9 +1572,147 @@ const ProgramGraphicTape = () => {
                     </Card>
                 </Col>
             </Row>
+*/}
+            <Row className="mb-4">
+                <Col xl={12}>
+                    <Card className="unique-showcodes-card">
+                        <Card.Header className="bg-info text-white">
+                            <FiGitCommit className="me-2" />
+                            Unique Show Codes Report
+                            <Badge bg="light" text="dark" className="ms-2">
+                                {metrics.uniqueShowCodes} unique codes
+                            </Badge>
+                        </Card.Header>
+                        <Card.Body>
+                            <div className="table-responsive">
+                                <Table striped bordered hover className="showcodes-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Show Code</th>
+                                            <th>Program Title</th>
+                                            <th>Networks</th>
+                                            <th>Feeds</th>
+                                            <th>Count</th>
+                                            <th>First Appearance</th>
+                                            <th>Last Appearance</th>
+                                            <th>Recorded Last 7 Days</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Array.from(
+                                            filteredData.reduce((acc, program) => {
+                                                const showCode = program["Show Code"];
+                                                if (!acc.has(showCode)) {
+                                                    acc.set(showCode, {
+                                                        title: program["Episode Title"],
+                                                        networks: new Set(),
+                                                        feeds: new Set(),
+                                                        count: 0,
+                                                        firstDate: program.start,
+                                                        lastDate: program.start,
+                                                        isRecordedRecently: false // Inicializar como falso
+                                                    });
+                                                }
+                                                const entry = acc.get(showCode);
+                                                entry.networks.add(program.Network);
+                                                entry.feeds.add(program.Feed);
+                                                entry.count++;
+                                                if (program.start < entry.firstDate) entry.firstDate = program.start;
+                                                if (program.start > entry.lastDate) entry.lastDate = program.start;
 
+                                                // Verificar si es un programa Tape en los últimos 7 días
+                                                const sevenDaysAgo = new Date();
+                                                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+                                                if (program.LTSA === 'Tape' && program.start >= sevenDaysAgo) {
+                                                    entry.isRecordedRecently = true;
+                                                }
 
+                                                return acc;
+                                            }, new Map())
+                                        )
+                                            .sort(([codeA], [codeB]) => codeA.localeCompare(codeB))
+                                            .map(([showCode, data], index) => (
+                                                <tr key={index}>
+                                                    <td>
+                                                        <Badge bg="dark" className="showcode-badge">
+                                                            {showCode}
+                                                        </Badge>
+                                                    </td>
+                                                    <td>{data.title || 'N/A'}</td>
+                                                    <td>
+                                                        <Stack direction="horizontal" gap={1} className="flex-wrap">
+                                                            {Array.from(data.networks).map((network, i) => (
+                                                                <Badge key={i} bg="secondary">
+                                                                    {network}
+                                                                </Badge>
+                                                            ))}
+                                                        </Stack>
+                                                    </td>
+                                                    <td>
+                                                        <Stack direction="horizontal" gap={1}>
+                                                            {Array.from(data.feeds).map((feed, i) => (
+                                                                <Badge key={i} bg="primary">
+                                                                    {feed}
+                                                                </Badge>
+                                                            ))}
+                                                        </Stack>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <Badge pill bg={data.count > 1 ? "warning" : "success"}>
+                                                            {data.count}
+                                                        </Badge>
+                                                    </td>
+                                                    <td>
+                                                        {data.firstDate.toLocaleDateString('es-ES', {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric'
+                                                        })}
+                                                    </td>
+                                                    <td>
+                                                        {data.lastDate.toLocaleDateString('es-ES', {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric'
+                                                        })}
+                                                    </td>
+                                                    <td className="text-center">
+                                                        {data.isRecordedRecently ? (
+                                                            <Badge pill bg="success">
+                                                                <FiCheckCircle className="me-1" />
+                                                                Yes
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge pill bg="secondary">
+                                                                <FiX className="me-1" />
+                                                                No
+                                                            </Badge>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan="8" className="text-muted small">
+                                                <FiInfo className="me-1" />
+                                                Showing {metrics.uniqueShowCodes} unique show codes filtered by: {formatDateRange(dateRange[0].startDate, dateRange[0].endDate)}
+                                                {filters.network && ` | Network: ${filters.network}`}
+                                                {filters.feed && ` | Feed: ${filters.feed}`}
+                                                <span className="d-block mt-1">
+                                                    <FiInfo className="me-1" />
+                                                    "Recorded Last 7 Days" shows if the show code has been recorded (Tape) in the past 7 days
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </Table>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Gráfico de Apariciones de Show Code 
 <Row className="mb-4">
@@ -2274,7 +2462,7 @@ const ProgramGraphicTape = () => {
 
 
             {/* Tabla de programas duplicados */}
- <Row className="g-4 mb-5">
+            <Row className="g-4 mb-5">
                 <Col xl={12}>
                     <Card className="chart-card">
                         <Tabs defaultActiveKey="chart" className="mb-3" responsive style={{ width: '100%', maxWidth: '100%' }}>
