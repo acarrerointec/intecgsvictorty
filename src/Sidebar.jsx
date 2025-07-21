@@ -17,7 +17,7 @@ import ProgramGraphic from "./ProgramGraphic";
 import ProgramGraphicTape from "./ProgramGraphicTape"; // Asegúrate de importar el componente correcto
 
 const Sidebar = () => {
-  const [activeComponent, setActiveComponent] = useState("ProgramGraphic"); // Componente activo por defecto
+  const [activeComponent, setActiveComponent] = useState("ProgramGraphicTape"); // Componente activo por defecto
   const [isSidebarVisible, setIsSidebarVisible] = useState(true); // Estado para mostrar/ocultar el Sidebar
 
   return (
