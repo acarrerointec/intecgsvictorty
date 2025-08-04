@@ -1093,7 +1093,7 @@ const ProgramGraphicTape = () => {
 
                                     <td>{program.Duration}</td>
                                     <td>
-                                        <Badge bg={program.LTSA === 'Live' ? 'danger' : 'warning'}>
+                                        <Badge bg={program.LTSA === 'Live' ? 'danger' : 'success'}>
                                             {program.LTSA}
                                         </Badge>
                                     </td>
