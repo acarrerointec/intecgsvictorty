@@ -468,3 +468,72 @@
 .showcodes-table tbody tr:hover {
   background-color: rgba(0, 123, 255, 0.05);
 }
+
+/* Estilos para tabla de duration tape */
+
+/* Estilos mejorados para la sección de duración */
+.duration-chart {
+    margin: 1rem 0;
+}
+
+.duration-item {
+    padding: 0.5rem;
+    background-color: rgba(248, 249, 250, 0.5);
+    border-radius: 0.25rem;
+}
+
+.duration-label {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+.color-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 8px;
+}
+
+.duration-count {
+    font-weight: 600;
+}
+
+.duration-details {
+    display: flex;
+    justify-content: space-between;
+}
+
+.summary-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.summary-item {
+    padding: 0.5rem;
+}
+
+.summary-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2E86AB;
+}
+
+.summary-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    .summary-value {
+        font-size: 1rem;
+    }
+    
+    .summary-label {
+        font-size: 0.65rem;
+    }
+}
